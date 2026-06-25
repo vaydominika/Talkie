@@ -1,0 +1,301 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Role {
+ STUDENT
+ CONTENT_EDITOR
+ ADMIN
+}
+enum ContentStatus {
+ DRAFT
+ PUBLISHED
+ ARCHIVED
+}
+enum CardState {
+ NEW
+ LEARNING
+ REVIEW
+ RELEARNING
+ SUSPENDED
+ BURIED
+}
+enum LanguageTabType {
+ LEARNING
+ FLASHCARDS
+ VOCABULARY
+ GRAMMAR
+ CUSTOM
+}
+enum TestQuestionType {
+ MULTIPLE_CHOICE
+ SHORT_ANSWER
+ MATCH_PAIRS
+ WORD_ORDER
+ FILL_BLANK
+}
+model User {
+ id String @id @default(cuid())
+ name String?
+ email String @unique
+ emailVerified DateTime?
+ image String?
+ passwordHash String?
+ role Role @default(STUDENT)
+ accounts Account[]
+ profile UserProfile?
+ preferences UserPreference?
+ lessonProgress LessonProgress[]
+ reviewStates FlashcardReviewState[]
+ testAttempts LessonTestAttempt[]
+ groupMemberships GroupMember[]
+}
+model Account {
+ id String @id @default(cuid())
+ userId String
+ type String
+ provider String
+ providerAccountId String
+ refresh_token String? @db.Text
+ access_token String? @db.Text
+ expires_at Int?
+ token_type String?
+ scope String?
+ id_token String? @db.Text
+ session_state String?
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@unique([provider,providerAccountId])
+}
+model UserProfile {
+ id String @id @default(cuid())
+ userId String @unique
+ dailyMinutes Int @default(15)
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+}
+model UserPreference {
+ id String @id @default(cuid())
+ userId String @unique
+ theme String @default("system")
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+}
+model Language {
+ id String @id @default(cuid())
+ code String @unique
+ name String
+ nativeName String
+ sidebarVisible Boolean @default(true)
+ sidebarPosition Int @default(0)
+ courses Course[]
+ vocabulary VocabularyEntry[]
+ grammar GrammarPoint[]
+ tabs LanguageTab[]
+ media MediaAsset[]
+}
+model LanguageTab {
+ id String @id @default(cuid())
+ languageId String
+ title String
+ slug String
+ type LanguageTabType @default(CUSTOM)
+ position Int @default(0)
+ status ContentStatus @default(DRAFT)
+ content Json?
+ language Language @relation(fields:[languageId],references:[id],onDelete:Cascade)
+ @@unique([languageId,slug])
+ @@unique([languageId,position])
+}
+model MediaAsset {
+ id String @id @default(cuid())
+ languageId String?
+ url String
+ altText String?
+ kind String @default("IMAGE")
+ targetKey String?
+ metadata Json?
+ createdAt DateTime @default(now())
+ language Language? @relation(fields:[languageId],references:[id],onDelete:SetNull)
+ @@index([kind,targetKey])
+}
+model ProficiencyLevel {
+ id String @id @default(cuid())
+ code String @unique
+ name String
+ rank Int
+ courses Course[]
+ vocabulary VocabularyEntry[]
+ grammar GrammarPoint[]
+}
+model Course {
+ id String @id @default(cuid())
+ slug String @unique
+ title String
+ description String
+ languageId String
+ levelId String
+ status ContentStatus @default(DRAFT)
+ language Language @relation(fields:[languageId],references:[id])
+ level ProficiencyLevel @relation(fields:[levelId],references:[id])
+ units CourseUnit[]
+}
+model CourseUnit {
+ id String @id @default(cuid())
+ courseId String
+ title String
+ position Int
+ course Course @relation(fields:[courseId],references:[id],onDelete:Cascade)
+ lessons Lesson[]
+ @@unique([courseId,position])
+}
+model Lesson {
+ id String @id @default(cuid())
+ unitId String
+ title String
+ position Int
+ unit CourseUnit @relation(fields:[unitId],references:[id],onDelete:Cascade)
+ blocks LessonBlock[]
+ progress LessonProgress[]
+ test LessonTest?
+ @@unique([unitId,position])
+}
+model LessonBlock {
+ id String @id @default(cuid())
+ lessonId String
+ position Int
+ title String?
+ content String
+ lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
+ @@unique([lessonId,position])
+}
+model LessonProgress {
+ id String @id @default(cuid())
+ userId String
+ lessonId String
+ completedBlocks Int @default(0)
+ completedAt DateTime?
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
+ @@unique([userId,lessonId])
+}
+model VocabularyEntry {
+ id String @id @default(cuid())
+ languageId String
+ levelId String?
+ displayForm String
+ definition String
+ partOfSpeech String?
+ sourceMetadata Json?
+ language Language @relation(fields:[languageId],references:[id])
+ level ProficiencyLevel? @relation(fields:[levelId],references:[id])
+ translations VocabularyTranslation[]
+ japanese JapaneseVocabularyMetadata?
+ german GermanVocabularyMetadata?
+ groupId String?
+ group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
+}
+model VocabularyTranslation {
+ id String @id @default(cuid())
+ entryId String
+ text String
+ entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+}
+model JapaneseVocabularyMetadata {
+ entryId String @id
+ kana String
+ romaji String?
+ jlpt String?
+ entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+}
+model GermanVocabularyMetadata {
+ entryId String @id
+ article String?
+ plural String?
+ entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+}
+model GrammarPoint {
+ id String @id @default(cuid())
+ languageId String
+ levelId String?
+ title String
+ summary String
+ explanation String
+ richContent Json?
+ sourceMetadata Json?
+ status ContentStatus @default(PUBLISHED)
+ language Language @relation(fields:[languageId],references:[id])
+ level ProficiencyLevel? @relation(fields:[levelId],references:[id])
+}
+model LessonTest {
+ id String @id @default(cuid())
+ lessonId String @unique
+ title String
+ requiredScore Int @default(80)
+ unlockNextLesson Boolean @default(false)
+ status ContentStatus @default(DRAFT)
+ lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
+ questions LessonTestQuestion[]
+ attempts LessonTestAttempt[]
+}
+model LessonTestQuestion {
+ id String @id @default(cuid())
+ testId String
+ type TestQuestionType
+ prompt String
+ explanation String?
+ answer Json
+ options Json?
+ position Int
+ test LessonTest @relation(fields:[testId],references:[id],onDelete:Cascade)
+ @@unique([testId,position])
+}
+model LessonTestAttempt {
+ id String @id @default(cuid())
+ testId String
+ userId String
+ score Int
+ passed Boolean
+ answers Json
+ createdAt DateTime @default(now())
+ test LessonTest @relation(fields:[testId],references:[id],onDelete:Cascade)
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@index([userId,testId])
+}
+model FlashcardReviewState {
+ id String @id @default(cuid())
+ userId String
+ state CardState @default(NEW)
+ dueAt DateTime @default(now())
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@index([userId,dueAt])
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Group {
+  id                 String            @id @default(cuid())
+  name               String
+  description        String?
+  inviteCode         String            @unique
+  allowMemberImports Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  members            GroupMember[]
+  vocabulary         VocabularyEntry[]
+}
+
+model GroupMember {
+  id       String    @id @default(cuid())
+  groupId  String
+  userId   String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  group    Group     @relation(fields:[groupId],references:[id],onDelete:Cascade)
+  user     User      @relation(fields:[userId],references:[id],onDelete:Cascade)
+
+  @@unique([groupId, userId])
+}
