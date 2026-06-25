@@ -52,6 +52,8 @@ model User {
  reviewStates FlashcardReviewState[]
  testAttempts LessonTestAttempt[]
  groupMemberships GroupMember[]
+ languages        UserLanguage[]
+ vocabulary       VocabularyEntry[]
 }
 model Account {
  id String @id @default(cuid())
@@ -93,6 +95,7 @@ model Language {
  grammar GrammarPoint[]
  tabs LanguageTab[]
  media MediaAsset[]
+ users UserLanguage[]
 }
 model LanguageTab {
  id String @id @default(cuid())
@@ -180,20 +183,22 @@ model LessonProgress {
  @@unique([userId,lessonId])
 }
 model VocabularyEntry {
- id String @id @default(cuid())
- languageId String
- levelId String?
- displayForm String
- definition String
- partOfSpeech String?
- sourceMetadata Json?
- language Language @relation(fields:[languageId],references:[id])
- level ProficiencyLevel? @relation(fields:[levelId],references:[id])
- translations VocabularyTranslation[]
- japanese JapaneseVocabularyMetadata?
- german GermanVocabularyMetadata?
- groupId String?
- group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
+  id String @id @default(cuid())
+  languageId String
+  levelId String?
+  displayForm String
+  definition String
+  partOfSpeech String?
+  sourceMetadata Json?
+  language Language @relation(fields:[languageId],references:[id])
+  level ProficiencyLevel? @relation(fields:[levelId],references:[id])
+  translations VocabularyTranslation[]
+  japanese JapaneseVocabularyMetadata?
+  german GermanVocabularyMetadata?
+  groupId String?
+  group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
+  userId String?
+  user User? @relation(fields:[userId],references:[id],onDelete:Cascade)
 }
 model VocabularyTranslation {
  id String @id @default(cuid())
@@ -298,4 +303,16 @@ model GroupMember {
   user     User      @relation(fields:[userId],references:[id],onDelete:Cascade)
 
   @@unique([groupId, userId])
+}
+
+model UserLanguage {
+  id         String   @id @default(cuid())
+  userId     String
+  languageId String
+  joinedAt   DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, languageId])
 }

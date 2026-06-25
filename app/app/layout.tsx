@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 const links = [
   ["Dashboard", "/app/dashboard"],
   ["Review", "/app/review"],
+  ["Languages", "/app/languages"],
   ["Groups", "/app/groups"],
 ] as const;
 
@@ -16,7 +17,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
   if (!session?.user) redirect("/sign-in");
   const languages = await prisma.language.findMany({
-    where: { sidebarVisible: true },
+    where: {
+      users: {
+        some: {
+          userId: session.user.id,
+        },
+      },
+    },
     orderBy: [{ sidebarPosition: "asc" }, { name: "asc" }],
     select: { code: true, name: true, nativeName: true },
   });

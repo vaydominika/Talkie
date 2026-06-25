@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
 import { LanguageTabs } from "@/components/language-tabs";
 import { languageHref, matchesLanguageSlug } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 
 export default async function LanguagePage({ params }: { params: Promise<{ language: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) notFound();
+
   const { language: requestedLanguage } = await params;
   const languages = await prisma.language.findMany({
     where: { sidebarVisible: true },
@@ -22,6 +26,9 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
 
   async function addWord(formData: FormData) {
     "use server";
+    const userSession = await auth();
+    if (!userSession?.user?.id) return;
+
     const id = String(formData.get("id") ?? "");
     const word = String(formData.get("word") ?? "").trim();
     const meaning = String(formData.get("meaning") ?? "").trim();
@@ -31,6 +38,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
       data: {
         id,
         languageId: currentLanguage.id,
+        userId: userSession.user.id,
         displayForm: word,
         definition: meaning,
         sourceMetadata: { addToFlashcards },
@@ -42,7 +50,11 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
 
   const [words, grammar, media] = await Promise.all([
     prisma.vocabularyEntry.findMany({
-      where: { languageId: currentLanguage.id },
+      where: {
+        languageId: currentLanguage.id,
+        userId: session.user.id,
+        groupId: null,
+      },
       take: 50,
       include: { translations: true, japanese: true },
       orderBy: { displayForm: "asc" },
