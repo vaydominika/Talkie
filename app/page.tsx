@@ -1,4 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-export default function Home() { return <main className="mx-auto max-w-5xl px-6 py-12"><header className="flex justify-between"><strong>Talkie</strong><Button asChild variant="outline"><Link href="/sign-in">Sign in</Link></Button></header><section className="py-20"><p className="text-sm text-muted-foreground">Japanese and German</p><h1 className="mt-3 max-w-3xl text-5xl font-bold tracking-tight">Build the habit. Keep the language.</h1><p className="mt-5 max-w-xl text-lg text-muted-foreground">Structured courses, clear grammar, and deliberate recall in one calm daily practice.</p><Button className="mt-8" asChild><Link href="/sign-up">Start learning</Link></Button></section><section className="grid gap-4 md:grid-cols-3">{[["Courses","Follow a sensible path from first words to confident usage."],["Reviews","Remember what matters with a transparent review schedule."],["Practice","Make mistakes safely, then use them to guide the next session."]].map(([title,body]) => <Card key={title}><CardHeader><CardTitle>{title}</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">{body}</CardContent></Card>)}</section></main>; }
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/sign-in");
+}
+
