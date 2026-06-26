@@ -103,6 +103,9 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
         <LanguageTabs
           language={currentLanguage.name}
           languageCode={currentLanguage.code}
+          speechLocale={currentLanguage.speechLocale}
+          speechVoiceName={currentLanguage.speechVoiceName}
+          speechProvider={currentLanguage.speechProvider}
           tabs={currentLanguage.tabs}
           words={words}
           grammar={grammar}

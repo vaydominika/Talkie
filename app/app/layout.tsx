@@ -34,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const displayName = user?.name || user?.email || session.user.email;
+  const isAdmin = session.user.role === "ADMIN" || user?.role === "ADMIN";
 
   return (
     <div className="min-h-screen md:pl-56">
@@ -82,7 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               ))}
             </div>
           )}
-          {user?.role === "ADMIN" && (
+          {isAdmin && (
             <SidebarLink href="/app/admin">
               Admin
             </SidebarLink>

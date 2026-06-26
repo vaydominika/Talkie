@@ -89,6 +89,9 @@ model Language {
  code String @unique
  name String
  nativeName String
+ speechProvider String?
+ speechLocale String?
+ speechVoiceName String?
  sidebarVisible Boolean @default(true)
  sidebarPosition Int @default(0)
  courses Course[]

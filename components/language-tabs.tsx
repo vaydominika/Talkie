@@ -70,6 +70,9 @@ function htmlFromRichContent(content: unknown) {
 export function LanguageTabs({
   language,
   languageCode,
+  speechLocale,
+  speechVoiceName,
+  speechProvider,
   tabs,
   words,
   grammar,
@@ -88,6 +91,9 @@ export function LanguageTabs({
 }: {
   language: string;
   languageCode: string;
+  speechLocale?: string | null;
+  speechVoiceName?: string | null;
+  speechProvider?: string | null;
   tabs: LanguageTab[];
   words: Word[];
   grammar: Grammar[];
@@ -190,6 +196,9 @@ export function LanguageTabs({
             words={words}
             selectedIds={selected}
             languageId={languageId}
+            speechLocale={speechLocale ?? languageCode}
+            speechVoiceName={speechVoiceName}
+            speechProvider={speechProvider}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
           />
@@ -200,6 +209,9 @@ export function LanguageTabs({
           subtitle="Personal words stay separate from group words until you copy them."
           words={words}
           languageId={languageId}
+          speechLocale={speechLocale ?? languageCode}
+          speechVoiceName={speechVoiceName}
+          speechProvider={speechProvider}
           selectedIds={selected}
           onToggleFlashcard={toggleFlashcard}
           onSetFlashcards={setFlashcards}

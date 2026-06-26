@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppModal } from "@/components/app-modal";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
 
 export type VocabularyTableWord = {
@@ -23,6 +24,9 @@ export function VocabularyTable({
   words,
   languageId,
   groupId,
+  speechLocale,
+  speechVoiceName,
+  speechProvider,
   selectedIds,
   onToggleFlashcard,
   onSetFlashcards,
@@ -37,6 +41,9 @@ export function VocabularyTable({
   words: VocabularyTableWord[];
   languageId: string;
   groupId?: string;
+  speechLocale?: string | null;
+  speechVoiceName?: string | null;
+  speechProvider?: string | null;
   selectedIds: Set<string>;
   onToggleFlashcard: (id: string) => void;
   onSetFlashcards: (ids: string[], checked: boolean) => void;
@@ -111,9 +118,14 @@ export function VocabularyTable({
               {words.map((word, index) => (
                 <tr key={word.id} className="animate-list-in border-t hover:bg-muted/10" style={{ animationDelay: `${index * 25}ms` }}>
                   <td className="p-3 font-medium">
-                    {word.displayForm}
-                    {word.pronunciation && <span className="ml-2 text-xs font-normal text-muted-foreground">[{word.pronunciation}]</span>}
-                    {word.japanese?.kana && <span className="ml-2 text-xs font-normal text-muted-foreground">({word.japanese.kana})</span>}
+                    <span className="inline-flex items-center gap-2">
+                      <span>
+                        {word.displayForm}
+                        {word.pronunciation && <span className="ml-2 text-xs font-normal text-muted-foreground">[{word.pronunciation}]</span>}
+                        {word.japanese?.kana && <span className="ml-2 text-xs font-normal text-muted-foreground">({word.japanese.kana})</span>}
+                      </span>
+                      <SpeakButton text={word.displayForm} locale={speechLocale} voiceName={speechVoiceName} provider={speechProvider} />
+                    </span>
                   </td>
                   <td className="p-3">{meaning(word)}</td>
                   <td className="p-3 text-right">

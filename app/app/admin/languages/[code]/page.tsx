@@ -115,6 +115,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Word" name="displayForm" placeholder={language.code === "ja" ? "食べる" : "der Tisch"} required />
               <Field label="Meaning" name="definition" placeholder="to eat / table" required />
+              <Field label="Pronunciation" name="pronunciation" placeholder="LEHR-nen" />
               <Field label="Part of speech" name="partOfSpeech" placeholder="noun, verb, adjective..." />
               {language.code === "ja" ? (
                 <>
@@ -146,6 +147,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                   <tr key={word.id} className="border-t">
                     <Td>
                       {word.displayForm}
+                      {word.pronunciation && <span className="ml-2 text-muted-foreground">[{word.pronunciation}]</span>}
                       {word.japanese?.kana && <span className="ml-2 text-muted-foreground">{word.japanese.kana}</span>}
                     </Td>
                     <Td>{word.translations.map((translation) => translation.text).join(", ") || word.definition}</Td>

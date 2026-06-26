@@ -20,7 +20,7 @@ type Word = {
   pronunciation: string | null;
   translations: { text: string }[];
   japanese: { kana: string } | null;
-  language: { id: string; code: string; name: string; nativeName: string };
+  language: { id: string; code: string; name: string; nativeName: string; speechProvider: string | null; speechLocale: string | null; speechVoiceName: string | null };
 };
 
 type Member = {
@@ -40,6 +40,9 @@ type Language = {
   code: string;
   name: string;
   nativeName: string;
+  speechProvider: string | null;
+  speechLocale: string | null;
+  speechVoiceName: string | null;
 };
 
 type AddWordAction = (formData: FormData) => Promise<void>;
@@ -313,6 +316,9 @@ export function GroupTabs({
                 words={activeWords}
                 languageId={activeLanguage.id}
                 groupId={groupId}
+                speechLocale={activeLanguage.speechLocale ?? activeLanguage.code}
+                speechVoiceName={activeLanguage.speechVoiceName}
+                speechProvider={activeLanguage.speechProvider}
                 selectedIds={selected}
                 onToggleFlashcard={toggleFlashcard}
                 onSetFlashcards={setFlashcards}
@@ -386,6 +392,9 @@ export function GroupTabs({
             selectedIds={selected}
             languageId={activeLanguage?.id}
             groupId={groupId}
+            speechLocale={activeLanguage?.speechLocale ?? activeLanguage?.code}
+            speechVoiceName={activeLanguage?.speechVoiceName}
+            speechProvider={activeLanguage?.speechProvider}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
           />

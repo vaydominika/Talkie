@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { SpeakButton } from "@/components/speak-button";
 
 type Word = {
   id: string;
@@ -9,6 +10,7 @@ type Word = {
   pronunciation: string | null;
   translations: { text: string }[];
   japanese: { kana: string } | null;
+  language?: { code: string; speechProvider: string | null; speechLocale: string | null; speechVoiceName: string | null };
 };
 
 type Direction = "target-native" | "native-target" | "random";
@@ -48,6 +50,9 @@ export function VocabularyFlashcards({
   selectedIds,
   languageId,
   groupId,
+  speechLocale,
+  speechVoiceName,
+  speechProvider,
   saveAttemptAction,
   resetAttemptsAction,
 }: {
@@ -55,6 +60,9 @@ export function VocabularyFlashcards({
   selectedIds: Set<string>;
   languageId?: string;
   groupId?: string;
+  speechLocale?: string | null;
+  speechVoiceName?: string | null;
+  speechProvider?: string | null;
   saveAttemptAction?: AttemptAction;
   resetAttemptsAction?: AttemptAction;
 }) {
@@ -86,6 +94,9 @@ export function VocabularyFlashcards({
   const prompt = card?.direction === "native-target" ? nativeAnswer(card.word) : card?.word.displayForm;
   const expected = card?.direction === "native-target" ? card.word.displayForm : card ? nativeAnswer(card.word) : "";
   const helper = card?.direction === "native-target" ? card.word.pronunciation : card?.word.pronunciation;
+  const activeSpeechLocale = card?.word.language?.speechLocale ?? card?.word.language?.code ?? speechLocale;
+  const activeSpeechVoiceName = card?.word.language?.speechVoiceName ?? speechVoiceName;
+  const activeSpeechProvider = card?.word.language?.speechProvider ?? speechProvider;
 
   const next = () => {
     setAnswer("");
@@ -162,7 +173,12 @@ export function VocabularyFlashcards({
 
       <section className="animate-panel-in mx-auto max-w-xl rounded-lg border bg-[#fbfaf4] p-6 text-center shadow-sm dark:bg-stone-950">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-700">Vocabulary sprint</p>
-        <p className="mt-8 text-5xl font-semibold text-stone-900 dark:text-stone-100">{prompt}</p>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <p className="text-5xl font-semibold text-stone-900 dark:text-stone-100">{prompt}</p>
+          {card?.direction === "target-native" && card.word.displayForm && (
+            <SpeakButton text={card.word.displayForm} locale={activeSpeechLocale} voiceName={activeSpeechVoiceName} provider={activeSpeechProvider} className="h-9 w-9 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-800" />
+          )}
+        </div>
         {card?.direction === "target-native" && card.word.japanese?.kana && <p className="mt-2 text-lg text-muted-foreground">{card.word.japanese.kana}</p>}
         {helper && <p className="mt-3 text-sm font-medium text-muted-foreground">[{helper}]</p>}
 

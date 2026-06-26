@@ -41,12 +41,18 @@ export async function createLanguage(formData: FormData) {
   const code = text(formData, "code").toLowerCase();
   const name = text(formData, "name");
   const nativeName = text(formData, "nativeName") || name;
+  const speechProvider = text(formData, "speechProvider") || "azure";
+  const speechLocale = text(formData, "speechLocale");
+  const speechVoiceName = text(formData, "speechVoiceName");
   if (!code || !name) return;
   const language = await prisma.language.create({
     data: {
       code,
       name,
       nativeName,
+      speechProvider: speechProvider || null,
+      speechLocale: speechLocale || null,
+      speechVoiceName: speechVoiceName || null,
       sidebarVisible: formData.get("sidebarVisible") === "on",
       sidebarPosition: integer(formData, "sidebarPosition"),
     },
@@ -65,6 +71,9 @@ export async function updateLanguage(formData: FormData) {
       code: text(formData, "code").toLowerCase(),
       name: text(formData, "name"),
       nativeName: text(formData, "nativeName"),
+      speechProvider: text(formData, "speechProvider") || null,
+      speechLocale: text(formData, "speechLocale") || null,
+      speechVoiceName: text(formData, "speechVoiceName") || null,
       sidebarVisible: formData.get("sidebarVisible") === "on",
       sidebarPosition: integer(formData, "sidebarPosition"),
     },
@@ -115,6 +124,7 @@ export async function createVocabulary(formData: FormData) {
   const languageId = text(formData, "languageId");
   const displayForm = text(formData, "displayForm");
   const definition = text(formData, "definition");
+  const pronunciation = text(formData, "pronunciation");
   const kana = text(formData, "kana");
   const romaji = text(formData, "romaji");
   const article = text(formData, "article");
@@ -129,6 +139,7 @@ export async function createVocabulary(formData: FormData) {
       languageId,
       displayForm,
       definition,
+      pronunciation: pronunciation || null,
       partOfSpeech: partOfSpeech || null,
       sourceMetadata: { addToFlashcards },
       translations: { create: { text: definition } },

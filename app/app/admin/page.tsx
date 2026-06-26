@@ -39,12 +39,18 @@ export default async function AdminPage() {
 
       <Panel eyebrow="Create" title="Add a language">
         <form action={createLanguage} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-6">
             <Field label="Name" name="name" placeholder="Italian" required />
             <Field label="Native name" name="nativeName" placeholder="Italiano" />
             <Field label="Code" name="code" placeholder="it" required />
+            <Field label="TTS provider" name="speechProvider" defaultValue="azure" placeholder="azure" />
+            <Field label="Speech locale" name="speechLocale" placeholder="it-IT" />
+            <Field label="Neural voice" name="speechVoiceName" placeholder="it-IT-ElsaNeural" />
             <Field label="Position" name="sidebarPosition" type="number" defaultValue={languages.length + 1} />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Use provider <span className="font-mono">azure</span> with a neural voice such as <span className="font-mono">de-DE-KatjaNeural</span>. Browser speech is only a fallback.
+          </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Check name="sidebarVisible" label="Show in sidebar" defaultChecked />
             <Button>Add language and open studio</Button>
@@ -80,8 +86,14 @@ export default async function AdminPage() {
                 <Field label="Name" name="name" defaultValue={language.name} required />
                 <Field label="Native" name="nativeName" defaultValue={language.nativeName} required />
                 <Field label="Code" name="code" defaultValue={language.code} required />
+                <Field label="TTS provider" name="speechProvider" defaultValue={language.speechProvider ?? "azure"} placeholder="azure" />
+                <Field label="Speech locale" name="speechLocale" defaultValue={language.speechLocale} placeholder="de-DE" />
+                <Field label="Neural voice" name="speechVoiceName" defaultValue={language.speechVoiceName} placeholder="de-DE-KatjaNeural" />
                 <Field label="Position" name="sidebarPosition" type="number" defaultValue={language.sidebarPosition} />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Accurate pronunciation uses server TTS when <span className="font-mono">AZURE_SPEECH_KEY</span> and <span className="font-mono">AZURE_SPEECH_REGION</span> are configured.
+              </p>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Check name="sidebarVisible" label="Visible in sidebar" defaultChecked={language.sidebarVisible} />
                 <Button variant="outline">Save language</Button>
