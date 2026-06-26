@@ -14,8 +14,12 @@ export function middleware(request: NextRequest) {
 
   const isLoggedIn = !!sessionToken;
 
+  if (pathname === "/app") {
+    return NextResponse.redirect(new URL(isLoggedIn ? "/app/dashboard" : "/", request.url));
+  }
+
   if (isAppRoute && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

@@ -15,7 +15,7 @@ const links = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  if (!session?.user) redirect("/");
   const languages = await prisma.language.findMany({
     where: {
       users: {
