@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 
 export default async function Home() {
   const session = await auth();
+  if (session?.user) redirect("/app/dashboard");
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted flex flex-col justify-between">
@@ -13,9 +15,7 @@ export default async function Home() {
           Talkie
         </span>
         <Button asChild variant="ghost">
-          <Link href={session ? "/app/dashboard" : "/sign-in"}>
-            {session ? "Dashboard" : "Sign In"}
-          </Link>
+          <Link href="/sign-in">Sign In</Link>
         </Button>
       </header>
 
@@ -32,16 +32,14 @@ export default async function Home() {
         </p>
         <div className="flex gap-4">
           <Button asChild className="h-12 rounded-full px-8 text-base font-semibold shadow-lg shadow-primary/25">
-            <Link href={session ? "/app/dashboard" : "/sign-up"}>
-              {session ? "Go to Dashboard" : "Get Started"}
-            </Link>
+            <Link href="/sign-up">Get Started</Link>
           </Button>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Talkie. All rights reserved.
+        &copy; {new Date().getFullYear()} Talkie. All rights reserved.
       </footer>
     </main>
   );

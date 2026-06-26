@@ -96,6 +96,7 @@ model Language {
  tabs LanguageTab[]
  media MediaAsset[]
  users UserLanguage[]
+ groups GroupLanguage[]
 }
 model LanguageTab {
  id String @id @default(cuid())
@@ -291,6 +292,7 @@ model Group {
   createdAt          DateTime          @default(now())
   members            GroupMember[]
   vocabulary         VocabularyEntry[]
+  languages          GroupLanguage[]
 }
 
 model GroupMember {
@@ -303,6 +305,17 @@ model GroupMember {
   user     User      @relation(fields:[userId],references:[id],onDelete:Cascade)
 
   @@unique([groupId, userId])
+}
+
+model GroupLanguage {
+  id         String   @id @default(cuid())
+  groupId    String
+  languageId String
+  addedAt    DateTime @default(now())
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, languageId])
 }
 
 model UserLanguage {

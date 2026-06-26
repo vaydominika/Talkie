@@ -28,6 +28,13 @@ type LanguageTab = {
   content?: unknown;
 };
 type AddWord = (formData: FormData) => void | Promise<void>;
+type SyncAction = (formData: FormData) => void | Promise<void>;
+type GroupSyncTarget = {
+  id: string;
+  name: string;
+  wordCount: number;
+  canImportToGroup: boolean;
+};
 
 const defaultTabs: LanguageTab[] = [
   { id: "learning", title: "Learning", slug: "learning", type: "LEARNING" },
@@ -51,6 +58,10 @@ export function LanguageTabs({
   words,
   grammar,
   addWord,
+  languageId,
+  groupSyncTargets = [],
+  importGroupVocabularyToProfileAction,
+  importProfileVocabularyToGroupAction,
   strokeOrderImages = {},
 }: {
   language: string;
@@ -59,6 +70,10 @@ export function LanguageTabs({
   words: Word[];
   grammar: Grammar[];
   addWord: AddWord;
+  languageId: string;
+  groupSyncTargets?: GroupSyncTarget[];
+  importGroupVocabularyToProfileAction: SyncAction;
+  importProfileVocabularyToGroupAction: SyncAction;
   strokeOrderImages?: Record<string, string>;
 }) {
   const visibleTabs = useMemo(() => (tabs.length ? tabs : defaultTabs), [tabs]);
@@ -124,8 +139,12 @@ export function LanguageTabs({
           <VocabularyFlashcards words={words} selectedIds={selected} />
         </div>
       ) : activeTab?.type === "VOCABULARY" ? (
-        <div>
-          <div className="mb-4 flex justify-end">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-medium">My {language} Vocabulary ({words.length})</h2>
+              <p className="text-sm text-muted-foreground">Personal words stay separate from group words until you import them.</p>
+            </div>
             <button
               onClick={() => {
                 setNewWordId(crypto.randomUUID());
@@ -137,6 +156,45 @@ export function LanguageTabs({
               <span className="mr-1 text-lg leading-none">+</span>Add vocabulary
             </button>
           </div>
+
+          {groupSyncTargets.length > 0 && (
+            <div className="rounded-lg border bg-muted/10 p-4">
+              <h3 className="text-sm font-semibold">Group sync</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {groupSyncTargets.map((group) => (
+                  <div key={group.id} className="rounded-lg border bg-background p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{group.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {group.wordCount} group word{group.wordCount === 1 ? "" : "s"} in {language}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <form action={importGroupVocabularyToProfileAction}>
+                        <input type="hidden" name="groupId" value={group.id} />
+                        <input type="hidden" name="languageId" value={languageId} />
+                        <button type="submit" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted">
+                          Import group words
+                        </button>
+                      </form>
+                      {group.canImportToGroup && (
+                        <form action={importProfileVocabularyToGroupAction}>
+                          <input type="hidden" name="groupId" value={group.id} />
+                          <input type="hidden" name="languageId" value={languageId} />
+                          <button type="submit" className="rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50">
+                            Send my words
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted text-left">

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { LanguageTabs } from "@/components/language-tabs";
 import { languageHref, matchesLanguageSlug } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
+import { importGroupVocabularyToProfileAction, importProfileVocabularyToGroupAction } from "../groups/actions";
 
 export default async function LanguagePage({ params }: { params: Promise<{ language: string }> }) {
   const session = await auth();
@@ -48,7 +49,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
     revalidatePath(languageHref(currentLanguage));
   }
 
-  const [words, grammar, media] = await Promise.all([
+  const [words, grammar, media, groupMemberships] = await Promise.all([
     prisma.vocabularyEntry.findMany({
       where: {
         languageId: currentLanguage.id,
@@ -67,9 +68,44 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
     prisma.mediaAsset.findMany({
       where: { languageId: currentLanguage.id, kind: "STROKE_ORDER", targetKey: { not: null } },
     }),
+    prisma.groupMember.findMany({
+      where: {
+        userId: session.user.id,
+        group: {
+          languages: {
+            some: {
+              languageId: currentLanguage.id,
+            },
+          },
+        },
+      },
+      include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            allowMemberImports: true,
+            vocabulary: {
+              where: { languageId: currentLanguage.id },
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { joinedAt: "desc" },
+    }),
   ]);
 
   const strokeOrderImages = Object.fromEntries(media.map((asset) => [asset.targetKey!, asset.url]));
+  const groupSyncTargets = groupMemberships.map((membership) => ({
+    id: membership.group.id,
+    name: membership.group.name,
+    wordCount: membership.group.vocabulary.length,
+    canImportToGroup:
+      membership.role === "OWNER" ||
+      membership.role === "ADMIN" ||
+      membership.group.allowMemberImports,
+  }));
 
   return (
     <>
@@ -85,6 +121,10 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
           words={words}
           grammar={grammar}
           addWord={addWord}
+          languageId={currentLanguage.id}
+          groupSyncTargets={groupSyncTargets}
+          importGroupVocabularyToProfileAction={importGroupVocabularyToProfileAction}
+          importProfileVocabularyToGroupAction={importProfileVocabularyToGroupAction}
           strokeOrderImages={strokeOrderImages}
         />
       </div>

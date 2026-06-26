@@ -1,12 +1,18 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { GroupTabs } from "@/components/group-tabs";
-import { addGroupVocabulary } from "../actions";
+import {
+  addGroupLanguage,
+  addGroupVocabulary,
+  deleteGroupVocabulary,
+  removeGroupMember,
+  updateGroupMemberRole,
+  updateGroupVocabulary,
+} from "../actions";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -43,11 +49,30 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
               language: {
                 select: {
                   id: true,
+                  code: true,
                   name: true,
+                  nativeName: true,
                 },
               },
             },
             orderBy: { displayForm: "asc" },
+          },
+          languages: {
+            include: {
+              language: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  nativeName: true,
+                },
+              },
+            },
+            orderBy: {
+              language: {
+                name: "asc",
+              },
+            },
           },
         },
       },
@@ -61,12 +86,15 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const { group } = membership;
 
-  // Get active languages in the app for adding vocabulary
-  const languages = await prisma.language.findMany({
-    select: {
-      id: true,
-      name: true,
+  const profileLanguages = await prisma.language.findMany({
+    where: {
+      users: {
+        some: {
+          userId: session.user.id,
+        },
+      },
     },
+    select: { id: true, code: true, name: true, nativeName: true },
     orderBy: { name: "asc" },
   });
 
@@ -75,7 +103,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={"/app/groups" as Route} className="text-xs font-semibold text-rose-600 hover:underline">
-            ← Back to Groups
+            &larr; Back to Groups
           </Link>
           <h1 className="text-3xl font-bold mt-1">{group.name}</h1>
           {group.description && <p className="text-muted-foreground mt-1 text-sm">{group.description}</p>}
@@ -97,10 +125,17 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         groupId={group.id}
         words={group.vocabulary}
         members={group.members}
-        languages={languages}
+        groupLanguages={group.languages.map((item) => item.language)}
+        availableLanguages={profileLanguages}
         allowMemberImports={group.allowMemberImports}
         currentUserRole={membership.role}
+        currentUserId={session.user.id}
         addWordAction={addGroupVocabulary}
+        updateWordAction={updateGroupVocabulary}
+        deleteWordAction={deleteGroupVocabulary}
+        addLanguageAction={addGroupLanguage}
+        updateMemberRoleAction={updateGroupMemberRole}
+        removeMemberAction={removeGroupMember}
       />
     </div>
   );

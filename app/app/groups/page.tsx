@@ -21,6 +21,7 @@ export default async function GroupsPage() {
             select: {
               members: true,
               vocabulary: true,
+              languages: true,
             },
           },
         },
@@ -65,7 +66,9 @@ export default async function GroupsPage() {
                   <CardContent className="pt-0">
                     <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
                       <span>{m.group._count.members} member(s)</span>
-                      <span>{m.group._count.vocabulary} word(s)</span>
+                      <span>
+                        {m.group._count.languages} language(s) / {m.group._count.vocabulary} word(s)
+                      </span>
                     </div>
                     <Button asChild className="w-full" variant="outline">
                       <Link href={`/app/groups/${m.group.id}` as Route}>Enter Group</Link>
