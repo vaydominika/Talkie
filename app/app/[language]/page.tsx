@@ -33,7 +33,6 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
         userId: session.user.id,
         groupId: null,
       },
-      take: 50,
       include: { translations: true, japanese: true },
       orderBy: { displayForm: "asc" },
     }),
