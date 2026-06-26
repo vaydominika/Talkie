@@ -2,13 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 
 export default async function SignUpPage() {
-  if (await auth()) redirect("/app/dashboard");
-
   async function submit(formData: FormData) {
     "use server";
     const input = z

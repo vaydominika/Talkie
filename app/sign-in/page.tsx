@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth, signIn } from "@/auth";
+import { signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
 
 export default async function SignInPage() {
-  if (await auth()) redirect("/app/dashboard");
-
   async function submit(formData: FormData) {
     "use server";
     await signIn("credentials", {

@@ -30,7 +30,7 @@ export default async function Home() {
         </p>
         <div className="flex gap-4">
           <Button asChild className="h-12 rounded-full px-8 text-base font-semibold shadow-lg shadow-primary/25">
-            <Link href="/sign-up">Get Started</Link>
+            <Link href="/sign-in">Get Started</Link>
           </Button>
         </div>
       </section>
