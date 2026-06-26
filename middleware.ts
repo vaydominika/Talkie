@@ -4,7 +4,6 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isAuthRoute = pathname === "/sign-in" || pathname === "/sign-up" || pathname === "/";
   const isAppRoute = pathname.startsWith("/app");
 
   const sessionToken =
@@ -15,13 +14,6 @@ export function middleware(request: NextRequest) {
 
   const isLoggedIn = !!sessionToken;
 
-  if (isAuthRoute) {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/app/dashboard", request.url));
-    }
-    return NextResponse.next();
-  }
-
   if (isAppRoute && !isLoggedIn) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
@@ -30,5 +22,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/app/:path*"],
 };
