@@ -59,7 +59,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           <p className="mt-5 font-mono text-xs uppercase tracking-[0.22em] text-rose-700">{language.code}</p>
           <h1 className="font-serif text-4xl">{language.name} studio</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {language.nativeName} - Manage this language's learner page, words, lessons, images, and gates.
+            {language.nativeName} - Manage this language&apos;s learner page, words, lessons, images, and gates.
           </p>
         </div>
         <Button asChild variant="outline">

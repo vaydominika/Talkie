@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth, signIn } from "@/auth";
+import { Button } from "@/components/ui/button";
+
+export default async function SignInPage() {
+  if (await auth()) redirect("/app/dashboard");
+
+  async function submit(formData: FormData) {
+    "use server";
+    await signIn("credentials", {
+      email: formData.get("email"),
+      password: formData.get("password"),
+      redirectTo: "/app/dashboard",
+    });
+  }
+
+  async function signInWithGoogle() {
+    "use server";
+    await signIn("google", { redirectTo: "/app/dashboard" });
+  }
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md items-center px-6">
+      <div className="w-full space-y-4 rounded-lg border p-6">
+        <h1 className="text-2xl font-semibold">Sign in</h1>
+        <form action={signInWithGoogle}>
+          <Button className="w-full" variant="outline">
+            Continue with Google
+          </Button>
+        </form>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          or
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <form action={submit} className="space-y-4">
+          <label className="block text-sm">
+            Email
+            <input
+              className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+            />
+          </label>
+          <label className="block text-sm">
+            Password
+            <input
+              className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="current-password"
+            />
+          </label>
+          <Button className="w-full">Sign in</Button>
+        </form>
+        <p className="text-sm text-muted-foreground">
+          New here?{" "}
+          <Link className="underline" href="/sign-up">
+            Create an account
+          </Link>
+        </p>
+      </div>
+    </main>
+  );
+}
