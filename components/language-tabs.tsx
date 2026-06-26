@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { KanaChecker } from "@/components/kana-checker";
 import { KanaFlashcards } from "@/components/kana-flashcards";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 
 type Word = {
@@ -11,6 +13,16 @@ type Word = {
   definition: string;
   translations: { text: string }[];
   japanese: { kana: string } | null;
+};
+type ReviewAttempt = {
+  id: string;
+  vocabularyEntryId: string;
+  displayForm: string;
+  prompt: string;
+  expected: string;
+  answer: string;
+  correct: boolean;
+  createdAt: Date;
 };
 type Grammar = {
   id: string;
@@ -27,12 +39,14 @@ type LanguageTab = {
   type: "LEARNING" | "FLASHCARDS" | "VOCABULARY" | "GRAMMAR" | "CUSTOM";
   content?: unknown;
 };
-type AddWord = (formData: FormData) => void | Promise<void>;
+type Action = (formData: FormData) => void | Promise<void>;
 type SyncAction = (formData: FormData) => void | Promise<void>;
 type GroupSyncTarget = {
   id: string;
   name: string;
   wordCount: number;
+  mineToGroupCount: number;
+  groupToMineCount: number;
   canImportToGroup: boolean;
 };
 
@@ -40,6 +54,7 @@ const defaultTabs: LanguageTab[] = [
   { id: "learning", title: "Learning", slug: "learning", type: "LEARNING" },
   { id: "flashcards", title: "Flashcards", slug: "flashcards", type: "FLASHCARDS" },
   { id: "vocabulary", title: "Vocabulary", slug: "vocabulary", type: "VOCABULARY" },
+  { id: "review", title: "Review", slug: "review", type: "CUSTOM" },
   { id: "grammar", title: "Grammar", slug: "grammar", type: "GRAMMAR" },
 ];
 
@@ -58,8 +73,14 @@ export function LanguageTabs({
   words,
   grammar,
   addWord,
+  addWordsBulk,
+  updateWord,
+  deleteWord,
   languageId,
   groupSyncTargets = [],
+  reviewAttempts,
+  saveAttemptAction,
+  resetAttemptsAction,
   importGroupVocabularyToProfileAction,
   importProfileVocabularyToGroupAction,
   strokeOrderImages = {},
@@ -69,31 +90,48 @@ export function LanguageTabs({
   tabs: LanguageTab[];
   words: Word[];
   grammar: Grammar[];
-  addWord: AddWord;
+  addWord: Action;
+  addWordsBulk: Action;
+  updateWord: Action;
+  deleteWord: Action;
   languageId: string;
   groupSyncTargets?: GroupSyncTarget[];
+  reviewAttempts: ReviewAttempt[];
+  saveAttemptAction: Action;
+  resetAttemptsAction: Action;
   importGroupVocabularyToProfileAction: SyncAction;
   importProfileVocabularyToGroupAction: SyncAction;
   strokeOrderImages?: Record<string, string>;
 }) {
-  const visibleTabs = useMemo(() => (tabs.length ? tabs : defaultTabs), [tabs]);
+  const visibleTabs = useMemo(() => {
+    const base = tabs.length ? tabs : defaultTabs.filter((tab) => tab.slug !== "review");
+    return base.some((tab) => tab.slug === "review")
+      ? base
+      : [...base.slice(0, 3), { id: "review", title: "Review", slug: "review", type: "CUSTOM" as const }, ...base.slice(3)];
+  }, [tabs]);
   const [tab, setTab] = useState(visibleTabs[0]?.slug ?? "learning");
-  const [adding, setAdding] = useState(false);
-  const [addToFlashcards, setAddToFlashcards] = useState(true);
-  const [newWordId, setNewWordId] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState(groupSyncTargets[0]?.id ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const activeTab = visibleTabs.find((item) => item.slug === tab) ?? visibleTabs[0];
   const isJapanese = languageCode.toLowerCase() === "ja";
+  const selectedGroup = groupSyncTargets.find((group) => group.id === selectedGroupId) ?? groupSyncTargets[0];
+  const correctCount = reviewAttempts.filter((attempt) => attempt.correct).length;
+  const uniqueReviewed = new Set(reviewAttempts.map((attempt) => attempt.vocabularyEntryId)).size;
+  const learnedDays = new Set(reviewAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size;
+  const missedAttempts = reviewAttempts.filter((attempt) => !attempt.correct);
 
   useEffect(() => {
     const stored = localStorage.getItem("talkie-vocabulary-flashcards");
+    const allWordIds = words.map((word) => word.id);
     if (stored === null) {
-      const allWordIds = words.map((word) => word.id);
       localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify(allWordIds));
       setSelected(new Set(allWordIds));
       return;
     }
-    setSelected(new Set(JSON.parse(stored)));
+    const storedIds = JSON.parse(stored) as string[];
+    const next = new Set([...storedIds, ...allWordIds.filter((id) => !storedIds.includes(id))]);
+    localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
+    setSelected(next);
   }, [words]);
 
   useEffect(() => {
@@ -104,6 +142,17 @@ export function LanguageTabs({
     setSelected((current) => {
       const next = new Set(current);
       next.has(id) ? next.delete(id) : next.add(id);
+      localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
+      return next;
+    });
+
+  const setFlashcards = (ids: string[], checked: boolean) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
       localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
       return next;
     });
@@ -136,93 +185,108 @@ export function LanguageTabs({
       ) : activeTab?.type === "FLASHCARDS" || activeTab?.slug === "flashcards" ? (
         <div className="space-y-6">
           {isJapanese && <KanaFlashcards />}
-          <VocabularyFlashcards words={words} selectedIds={selected} />
+          <VocabularyFlashcards
+            words={words}
+            selectedIds={selected}
+            languageId={languageId}
+            saveAttemptAction={saveAttemptAction}
+            resetAttemptsAction={resetAttemptsAction}
+          />
         </div>
       ) : activeTab?.type === "VOCABULARY" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-medium">My {language} Vocabulary ({words.length})</h2>
-              <p className="text-sm text-muted-foreground">Personal words stay separate from group words until you import them.</p>
-            </div>
-            <button
-              onClick={() => {
-                setNewWordId(crypto.randomUUID());
-                setAddToFlashcards(true);
-                setAdding(true);
-              }}
-              className="rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white"
-            >
-              <span className="mr-1 text-lg leading-none">+</span>Add vocabulary
-            </button>
-          </div>
-
-          {groupSyncTargets.length > 0 && (
-            <div className="rounded-lg border bg-muted/10 p-4">
-              <h3 className="text-sm font-semibold">Group sync</h3>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {groupSyncTargets.map((group) => (
-                  <div key={group.id} className="rounded-lg border bg-background p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{group.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {group.wordCount} group word{group.wordCount === 1 ? "" : "s"} in {language}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <form action={importGroupVocabularyToProfileAction}>
-                        <input type="hidden" name="groupId" value={group.id} />
-                        <input type="hidden" name="languageId" value={languageId} />
-                        <button type="submit" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted">
-                          Import group words
-                        </button>
-                      </form>
-                      {group.canImportToGroup && (
-                        <form action={importProfileVocabularyToGroupAction}>
-                          <input type="hidden" name="groupId" value={group.id} />
-                          <input type="hidden" name="languageId" value={languageId} />
-                          <button type="submit" className="rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50">
-                            Send my words
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                ))}
+        <VocabularyTable
+          title={`My ${language} Vocabulary (${words.length})`}
+          subtitle="Personal words stay separate from group words until you copy them."
+          words={words}
+          languageId={languageId}
+          selectedIds={selected}
+          onToggleFlashcard={toggleFlashcard}
+          onSetFlashcards={setFlashcards}
+          addAction={addWord}
+          bulkAddAction={addWordsBulk}
+          updateAction={updateWord}
+          deleteAction={deleteWord}
+          syncControls={
+            groupSyncTargets.length > 0 && selectedGroup ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedGroup.id}
+                  onChange={(event) => setSelectedGroupId(event.target.value)}
+                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-400"
+                >
+                  {groupSyncTargets.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <form action={importGroupVocabularyToProfileAction}>
+                  <input type="hidden" name="groupId" value={selectedGroup.id} />
+                  <input type="hidden" name="languageId" value={languageId} />
+                  <PendingSubmitButton
+                    disabled={selectedGroup.groupToMineCount === 0}
+                    pendingLabel="Copying..."
+                    className="h-10 rounded-md border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Copy group to mine
+                  </PendingSubmitButton>
+                </form>
+                {selectedGroup.canImportToGroup && (
+                  <form action={importProfileVocabularyToGroupAction}>
+                    <input type="hidden" name="groupId" value={selectedGroup.id} />
+                    <input type="hidden" name="languageId" value={languageId} />
+                    <PendingSubmitButton
+                      disabled={selectedGroup.mineToGroupCount === 0}
+                      pendingLabel="Copying..."
+                      className="h-10 rounded-md border border-rose-200 px-3 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Copy mine to group
+                    </PendingSubmitButton>
+                  </form>
+                )}
               </div>
+            ) : null
+          }
+        />
+      ) : activeTab?.slug === "review" ? (
+        <div className="space-y-6">
+          <div className="animate-panel-in grid gap-4 sm:grid-cols-4">
+            <Stat label="Days learned" value={learnedDays} />
+            <Stat label="New words" value={uniqueReviewed} />
+            <Stat label="Correct" value={correctCount} />
+            <Stat label="Missed" value={reviewAttempts.length - correctCount} />
+          </div>
+          {missedAttempts.length === 0 ? (
+            <section className="animate-panel-in rounded-lg border border-dashed p-8 text-center">
+              <h2 className="text-xl font-semibold">No missed answers yet.</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Wrong answers from flashcards will appear here.</p>
+            </section>
+          ) : (
+            <div className="animate-panel-in overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left">
+                  <tr>
+                    <th className="p-3">Word</th>
+                    <th className="p-3">Prompt</th>
+                    <th className="p-3">Expected</th>
+                    <th className="p-3">Your answer</th>
+                    <th className="p-3 text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missedAttempts.map((attempt, index) => (
+                    <tr key={attempt.id} className="animate-list-in border-t" style={{ animationDelay: `${index * 25}ms` }}>
+                      <td className="p-3 font-medium">{attempt.displayForm}</td>
+                      <td className="p-3">{attempt.prompt}</td>
+                      <td className="p-3">{attempt.expected}</td>
+                      <td className="p-3 text-rose-700">{attempt.answer || "-"}</td>
+                      <td className="p-3 text-right text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left">
-                <tr>
-                  <th className="p-3">Word</th>
-                  <th className="p-3">Meaning</th>
-                  <th className="p-3">Flashcard</th>
-                </tr>
-              </thead>
-              <tbody>
-                {words.map((word) => (
-                  <tr key={word.id} className="border-t">
-                    <td className="p-3 font-medium">
-                      {word.displayForm}
-                      {word.japanese?.kana && <span className="ml-2 text-muted-foreground">{word.japanese.kana}</span>}
-                    </td>
-                    <td className="p-3">{word.translations.map((translation) => translation.text).join(", ") || word.definition}</td>
-                    <td className="p-3">
-                      <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={selected.has(word.id)} onChange={() => toggleFlashcard(word.id)} />
-                        <span>Add to flashcards</span>
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       ) : activeTab?.type === "GRAMMAR" ? (
         <div className="grid gap-4 md:grid-cols-2">
@@ -251,50 +315,15 @@ export function LanguageTabs({
         </section>
       )}
 
-      {adding && (
-        <div role="dialog" aria-modal="true" aria-label="Add vocabulary" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form
-            action={addWord}
-            onSubmit={() => {
-              if (addToFlashcards) {
-                const next = new Set(selected);
-                next.add(newWordId);
-                localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
-              }
-            }}
-            className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl"
-          >
-            <input type="hidden" name="id" value={newWordId} />
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Add vocabulary</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Add a word to {language}.</p>
-              </div>
-              <button type="button" onClick={() => setAdding(false)} className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted">
-                Close
-              </button>
-            </div>
-            <label className="mt-5 block text-sm font-medium">
-              Word
-              <input name="word" required autoFocus className="mt-1 h-10 w-full rounded-md border bg-background px-3" />
-            </label>
-            <label className="mt-4 block text-sm font-medium">
-              Meaning
-              <input name="meaning" required className="mt-1 h-10 w-full rounded-md border bg-background px-3" />
-            </label>
-            <label className="mt-4 inline-flex items-center gap-2 text-sm">
-              <input name="addToFlashcards" type="checkbox" checked={addToFlashcards} onChange={(event) => setAddToFlashcards(event.target.checked)} />
-              <span>Add to flashcards</span>
-            </label>
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setAdding(false)} className="rounded-md border px-3 py-2 text-sm font-medium">
-                Cancel
-              </button>
-              <button className="rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white">Save vocabulary</button>
-            </div>
-          </form>
-        </div>
-      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }

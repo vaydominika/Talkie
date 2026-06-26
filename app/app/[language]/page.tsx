@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { LanguageTabs } from "@/components/language-tabs";
-import { languageHref, matchesLanguageSlug } from "@/lib/language-route";
+import { matchesLanguageSlug } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 import { importGroupVocabularyToProfileAction, importProfileVocabularyToGroupAction } from "../groups/actions";
+import { resetVocabularyReviewAttempts, saveVocabularyReviewAttempt } from "../review/actions";
+import { addPersonalVocabulary, addPersonalVocabularyBulk, deletePersonalVocabulary, updatePersonalVocabulary } from "../vocabulary/actions";
 
 export default async function LanguagePage({ params }: { params: Promise<{ language: string }> }) {
   const session = await auth();
@@ -25,31 +26,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
   if (!language) notFound();
   const currentLanguage = language;
 
-  async function addWord(formData: FormData) {
-    "use server";
-    const userSession = await auth();
-    if (!userSession?.user?.id) return;
-
-    const id = String(formData.get("id") ?? "");
-    const word = String(formData.get("word") ?? "").trim();
-    const meaning = String(formData.get("meaning") ?? "").trim();
-    const addToFlashcards = formData.get("addToFlashcards") === "on";
-    if (!id || !word || !meaning) return;
-    await prisma.vocabularyEntry.create({
-      data: {
-        id,
-        languageId: currentLanguage.id,
-        userId: userSession.user.id,
-        displayForm: word,
-        definition: meaning,
-        sourceMetadata: { addToFlashcards },
-        translations: { create: { text: meaning } },
-      },
-    });
-    revalidatePath(languageHref(currentLanguage));
-  }
-
-  const [words, grammar, media, groupMemberships] = await Promise.all([
+  const [words, grammar, media, groupMemberships, reviewAttempts] = await Promise.all([
     prisma.vocabularyEntry.findMany({
       where: {
         languageId: currentLanguage.id,
@@ -87,20 +64,30 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
             allowMemberImports: true,
             vocabulary: {
               where: { languageId: currentLanguage.id },
-              select: { id: true },
+              select: { id: true, displayForm: true, languageId: true },
             },
           },
         },
       },
       orderBy: { joinedAt: "desc" },
     }),
+    prisma.vocabularyReviewAttempt.findMany({
+      where: { userId: session.user.id, languageId: currentLanguage.id, groupId: null },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
   ]);
 
   const strokeOrderImages = Object.fromEntries(media.map((asset) => [asset.targetKey!, asset.url]));
+  const personalKeys = new Set(words.map((word) => word.displayForm.toLowerCase().trim()));
   const groupSyncTargets = groupMemberships.map((membership) => ({
     id: membership.group.id,
     name: membership.group.name,
     wordCount: membership.group.vocabulary.length,
+    mineToGroupCount: words.filter(
+      (word) => !membership.group.vocabulary.some((groupWord) => groupWord.displayForm.toLowerCase().trim() === word.displayForm.toLowerCase().trim()),
+    ).length,
+    groupToMineCount: membership.group.vocabulary.filter((word) => !personalKeys.has(word.displayForm.toLowerCase().trim())).length,
     canImportToGroup:
       membership.role === "OWNER" ||
       membership.role === "ADMIN" ||
@@ -120,9 +107,15 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
           tabs={currentLanguage.tabs}
           words={words}
           grammar={grammar}
-          addWord={addWord}
+          addWord={addPersonalVocabulary}
+          addWordsBulk={addPersonalVocabularyBulk}
+          updateWord={updatePersonalVocabulary}
+          deleteWord={deletePersonalVocabulary}
           languageId={currentLanguage.id}
           groupSyncTargets={groupSyncTargets}
+          reviewAttempts={reviewAttempts}
+          saveAttemptAction={saveVocabularyReviewAttempt}
+          resetAttemptsAction={resetVocabularyReviewAttempts}
           importGroupVocabularyToProfileAction={importGroupVocabularyToProfileAction}
           importProfileVocabularyToGroupAction={importProfileVocabularyToGroupAction}
           strokeOrderImages={strokeOrderImages}

@@ -50,6 +50,7 @@ model User {
  preferences UserPreference?
  lessonProgress LessonProgress[]
  reviewStates FlashcardReviewState[]
+ vocabularyAttempts VocabularyReviewAttempt[]
  testAttempts LessonTestAttempt[]
  groupMemberships GroupMember[]
  languages        UserLanguage[]
@@ -97,6 +98,7 @@ model Language {
  media MediaAsset[]
  users UserLanguage[]
  groups GroupLanguage[]
+ vocabularyAttempts VocabularyReviewAttempt[]
 }
 model LanguageTab {
  id String @id @default(cuid())
@@ -200,6 +202,7 @@ model VocabularyEntry {
   group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
   userId String?
   user User? @relation(fields:[userId],references:[id],onDelete:Cascade)
+  reviewAttempts VocabularyReviewAttempt[]
 }
 model VocabularyTranslation {
  id String @id @default(cuid())
@@ -277,6 +280,29 @@ model FlashcardReviewState {
  @@index([userId,dueAt])
 }
 
+model VocabularyReviewAttempt {
+  id String @id @default(cuid())
+  userId String
+  vocabularyEntryId String
+  languageId String
+  groupId String?
+  displayForm String
+  prompt String
+  expected String
+  answer String
+  direction String
+  correct Boolean
+  usedHint Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  vocabularyEntry VocabularyEntry @relation(fields:[vocabularyEntryId],references:[id],onDelete:Cascade)
+  language Language @relation(fields:[languageId],references:[id],onDelete:Cascade)
+  group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
+
+  @@index([userId,languageId,createdAt])
+  @@index([userId,groupId,createdAt])
+}
+
 enum GroupRole {
   OWNER
   ADMIN
@@ -293,6 +319,7 @@ model Group {
   members            GroupMember[]
   vocabulary         VocabularyEntry[]
   languages          GroupLanguage[]
+  vocabularyAttempts VocabularyReviewAttempt[]
 }
 
 model GroupMember {

@@ -8,3 +8,22 @@
   * { border-color: hsl(var(--border)); }
   body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
 }
+
+@layer utilities {
+  @keyframes talkie-float-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-page-in {
+    animation: talkie-float-up 240ms ease-out both;
+  }
+
+  .animate-panel-in {
+    animation: talkie-float-up 180ms ease-out both;
+  }
+
+  .animate-list-in {
+    animation: talkie-float-up 160ms ease-out both;
+  }
+}

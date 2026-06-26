@@ -27,7 +27,7 @@ async function requireGroupMember(groupId: string, userId: string) {
 async function requireGroupOwner(groupId: string, userId: string) {
   const membership = await requireGroupMember(groupId, userId);
   if (membership.role !== "OWNER") {
-    throw new Error("Only the group owner can manage members.");
+    throw new Error("Only the group owner can do that.");
   }
   return membership;
 }
@@ -168,6 +168,31 @@ async function importVocabularyToGroup(groupId: string, importedVocabIdsStr: str
   }
 }
 
+function parseImportedVocabByLanguage(raw: FormDataEntryValue | null) {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(String(raw)) as Record<string, string[]>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, ids]) => Array.isArray(ids) && ids.every((id) => typeof id === "string")),
+    );
+  } catch {
+    return {};
+  }
+}
+
+async function importSelectedVocabularyByLanguage(groupId: string, userId: string, importedByLanguage: Record<string, string[]>) {
+  for (const [languageId, ids] of Object.entries(importedByLanguage)) {
+    if (!ids.length) continue;
+    const originals = await getVocabularyEntriesToCopy({
+      id: { in: ids },
+      userId,
+      groupId: null,
+      languageId,
+    });
+    await copyVocabularyToGroup(groupId, originals);
+  }
+}
+
 export async function importProfileVocabularyToGroupAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -206,6 +231,7 @@ export async function importProfileVocabularyToGroupAction(formData: FormData) {
 
   await copyVocabularyToGroup(groupId, originals);
   revalidatePath(`/app/groups/${groupId}`);
+  await revalidateLanguage(languageId);
 }
 
 export async function importGroupVocabularyToProfileAction(formData: FormData) {
@@ -230,7 +256,43 @@ export async function importGroupVocabularyToProfileAction(formData: FormData) {
   });
   await copyVocabularyToProfile(session.user.id, originals);
   await revalidateLanguage(languageId);
+  revalidatePath(`/app/groups/${groupId}`);
   revalidatePath("/app/vocabulary");
+}
+
+export async function updateGroup(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+
+  if (!groupId || !name) throw new Error("Group name is required");
+
+  await requireGroupOwner(groupId, session.user.id);
+
+  await prisma.group.update({
+    where: { id: groupId },
+    data: { name, description },
+  });
+
+  revalidatePath("/app/groups");
+  revalidatePath(`/app/groups/${groupId}`);
+}
+
+export async function deleteGroup(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const groupId = String(formData.get("groupId") ?? "");
+  if (!groupId) throw new Error("Missing group ID");
+
+  await requireGroupOwner(groupId, session.user.id);
+  await prisma.group.delete({ where: { id: groupId } });
+
+  revalidatePath("/app/groups");
+  redirect("/app/groups");
 }
 
 export async function createGroup(formData: FormData) {
@@ -241,6 +303,8 @@ export async function createGroup(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const importVocab = formData.get("importVocab") === "on";
   const importedVocabIdsStr = String(formData.get("importedVocabIds") ?? "");
+  const languageIds = formData.getAll("languageIds").map(String).filter(Boolean);
+  const importedByLanguage = parseImportedVocabByLanguage(formData.get("importedVocabByLanguage"));
 
   if (!name) throw new Error("Group name is required");
 
@@ -270,8 +334,60 @@ export async function createGroup(formData: FormData) {
     await importVocabularyToGroup(group.id, importedVocabIdsStr);
   }
 
+  if (languageIds.length > 0) {
+    await prisma.groupLanguage.createMany({
+      data: [...new Set(languageIds)].map((languageId) => ({ groupId: group.id, languageId })),
+      skipDuplicates: true,
+    });
+  }
+
+  await importSelectedVocabularyByLanguage(group.id, session.user.id, importedByLanguage);
+
   revalidatePath("/app/groups");
   redirect(`/app/groups/${group.id}`);
+}
+
+export async function previewGroupInvite(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const inviteCode = String(formData.get("inviteCode") ?? "").trim().toUpperCase();
+  if (!inviteCode) throw new Error("Invite code is required");
+
+  const group = await prisma.group.findUnique({
+    where: { inviteCode },
+    include: {
+      languages: {
+        include: {
+          language: {
+            select: { id: true, code: true, name: true, nativeName: true },
+          },
+        },
+        orderBy: { language: { name: "asc" } },
+      },
+      vocabulary: {
+        select: { languageId: true },
+      },
+      members: {
+        where: { userId: session.user.id },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!group) throw new Error("No group found with that invite code.");
+
+  return {
+    id: group.id,
+    name: group.name,
+    description: group.description,
+    allowMemberImports: group.allowMemberImports,
+    alreadyMember: group.members.length > 0,
+    languages: group.languages.map((item) => ({
+      ...item.language,
+      wordCount: group.vocabulary.filter((word) => word.languageId === item.languageId).length,
+    })),
+  };
 }
 
 export async function joinGroup(formData: FormData) {
@@ -281,6 +397,7 @@ export async function joinGroup(formData: FormData) {
   const inviteCode = String(formData.get("inviteCode") ?? "").trim().toUpperCase();
   const importVocab = formData.get("importVocab") === "on";
   const importedVocabIdsStr = String(formData.get("importedVocabIds") ?? "");
+  const importedByLanguage = parseImportedVocabByLanguage(formData.get("importedVocabByLanguage"));
 
   if (!inviteCode) throw new Error("Invite code is required");
 
@@ -315,6 +432,10 @@ export async function joinGroup(formData: FormData) {
   // Only import if owner allows or user is the owner (which they aren't since they just joined)
   if (importVocab && importedVocabIdsStr && group.allowMemberImports) {
     await importVocabularyToGroup(group.id, importedVocabIdsStr);
+  }
+
+  if (group.allowMemberImports) {
+    await importSelectedVocabularyByLanguage(group.id, session.user.id, importedByLanguage);
   }
 
   revalidatePath("/app/groups");
@@ -378,6 +499,72 @@ export async function addGroupVocabulary(formData: FormData) {
   });
 
   revalidatePath(`/app/groups/${groupId}`);
+}
+
+function parseBulkVocabulary(raw: FormDataEntryValue | null) {
+  const parsed = JSON.parse(String(raw ?? "[]")) as unknown;
+  if (!Array.isArray(parsed)) throw new Error("JSON must be an array of words.");
+
+  return parsed
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const word = String(record.word ?? record.displayForm ?? "").trim();
+      const translationList = Array.isArray(record.translations)
+        ? record.translations.map((translation) =>
+            typeof translation === "string" ? translation : String((translation as Record<string, unknown>)?.text ?? ""),
+          )
+        : [];
+      const meaning = String(record.meaning ?? record.definition ?? translationList[0] ?? "").trim();
+      if (!word || !meaning) return null;
+      return { word, meaning };
+    })
+    .filter((item): item is { word: string; meaning: string } => Boolean(item));
+}
+
+export async function addGroupVocabularyBulk(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const languageId = String(formData.get("languageId") ?? "");
+  const entries = parseBulkVocabulary(formData.get("vocabularyJson"));
+
+  if (!groupId || !languageId) throw new Error("Missing parameters");
+  if (entries.length === 0) throw new Error("No valid words found.");
+
+  await requireGroupMember(groupId, session.user.id);
+
+  const groupLanguage = await prisma.groupLanguage.findUnique({
+    where: { groupId_languageId: { groupId, languageId } },
+  });
+  if (!groupLanguage) throw new Error("Add this language to the group before sharing vocabulary for it.");
+
+  const existing = await prisma.vocabularyEntry.findMany({
+    where: { groupId, languageId },
+    select: { displayForm: true },
+  });
+  const seen = new Set(existing.map((word) => word.displayForm.toLowerCase().trim()));
+
+  for (const entry of entries) {
+    const key = entry.word.toLowerCase().trim();
+    if (seen.has(key)) continue;
+    await prisma.vocabularyEntry.create({
+      data: {
+        id: crypto.randomUUID(),
+        groupId,
+        languageId,
+        displayForm: entry.word,
+        definition: entry.meaning,
+        sourceMetadata: { addToFlashcards: true, bulkJson: true },
+        translations: { create: { text: entry.meaning } },
+      },
+    });
+    seen.add(key);
+  }
+
+  revalidatePath(`/app/groups/${groupId}`);
+  await revalidateLanguage(languageId);
 }
 
 export async function updateGroupVocabulary(formData: FormData) {
@@ -504,6 +691,29 @@ export async function addGroupLanguage(formData: FormData) {
   });
 
   revalidatePath(`/app/groups/${groupId}`);
+}
+
+export async function removeGroupLanguage(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const languageId = String(formData.get("languageId") ?? "");
+
+  if (!groupId || !languageId) throw new Error("Missing parameters");
+
+  const membership = await requireGroupMember(groupId, session.user.id);
+  if (membership.role !== "OWNER" && membership.role !== "ADMIN") {
+    throw new Error("Only owners and admins can edit group languages.");
+  }
+
+  await prisma.$transaction([
+    prisma.vocabularyEntry.deleteMany({ where: { groupId, languageId } }),
+    prisma.groupLanguage.deleteMany({ where: { groupId, languageId } }),
+  ]);
+
+  revalidatePath(`/app/groups/${groupId}`);
+  await revalidateLanguage(languageId);
 }
 
 export async function updateGroupMemberRole(formData: FormData) {

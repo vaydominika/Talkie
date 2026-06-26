@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { UserAvatar } from "@/components/user-avatar";
+import { ConfirmActionForm } from "@/components/confirm-action-form";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +28,7 @@ type Member = {
   joinedAt: Date;
   userId: string;
   user: {
+    image: string | null;
     name: string | null;
     email: string;
   };
@@ -38,10 +43,24 @@ type Language = {
 
 type AddWordAction = (formData: FormData) => Promise<void>;
 type AddLanguageAction = (formData: FormData) => Promise<void>;
+type RemoveLanguageAction = (formData: FormData) => Promise<void>;
 type UpdateWordAction = (formData: FormData) => Promise<void>;
 type DeleteWordAction = (formData: FormData) => Promise<void>;
 type UpdateMemberRoleAction = (formData: FormData) => Promise<void>;
 type RemoveMemberAction = (formData: FormData) => Promise<void>;
+type AttemptAction = (formData: FormData) => void | Promise<void>;
+type ReviewAttempt = {
+  id: string;
+  vocabularyEntryId: string;
+  displayForm: string;
+  correct: boolean;
+  createdAt: Date;
+};
+type SyncCount = {
+  languageId: string;
+  mineToGroupCount: number;
+  groupToMineCount: number;
+};
 
 export function GroupTabs({
   groupId,
@@ -49,34 +68,44 @@ export function GroupTabs({
   members,
   groupLanguages,
   availableLanguages,
+  syncCounts,
+  reviewAttempts,
   allowMemberImports,
   currentUserRole,
   currentUserId,
   addWordAction,
+  addWordsBulkAction,
   updateWordAction,
   deleteWordAction,
   addLanguageAction,
+  removeLanguageAction,
   updateMemberRoleAction,
   removeMemberAction,
+  saveAttemptAction,
+  resetAttemptsAction,
 }: {
   groupId: string;
   words: Word[];
   members: Member[];
   groupLanguages: Language[];
   availableLanguages: Language[];
+  syncCounts: SyncCount[];
+  reviewAttempts: ReviewAttempt[];
   allowMemberImports: boolean;
   currentUserRole: string;
   currentUserId: string;
   addWordAction: AddWordAction;
+  addWordsBulkAction: AddWordAction;
   updateWordAction: UpdateWordAction;
   deleteWordAction: DeleteWordAction;
   addLanguageAction: AddLanguageAction;
+  removeLanguageAction: RemoveLanguageAction;
   updateMemberRoleAction: UpdateMemberRoleAction;
   removeMemberAction: RemoveMemberAction;
+  saveAttemptAction: AttemptAction;
+  resetAttemptsAction: AttemptAction;
 }) {
   const [tab, setTab] = useState("vocabulary");
-  const [adding, setAdding] = useState(false);
-  const [editingWord, setEditingWord] = useState<Word | null>(null);
   const [activeLanguageId, setActiveLanguageId] = useState(groupLanguages[0]?.id ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -99,6 +128,7 @@ export function GroupTabs({
   const addableLanguages = availableLanguages.filter(
     (language) => !groupLanguages.some((groupLanguage) => groupLanguage.id === language.id)
   );
+  const activeSync = syncCounts.find((item) => item.languageId === activeLanguage?.id);
 
   useEffect(() => {
     if (tab === "flashcards" && !activeLanguageId) return;
@@ -130,31 +160,20 @@ export function GroupTabs({
     });
   };
 
-  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    if (editingWord) {
-      await updateWordAction(formData);
-      setEditingWord(null);
-    } else {
-      await addWordAction(formData);
-    }
-    setAdding(false);
+  const setFlashcards = (ids: string[], checked: boolean) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify([...next]));
+      return next;
+    });
   };
-
-  const openAddWord = () => {
-    setEditingWord(null);
-    setAdding(true);
-  };
-
-  const openEditWord = (word: Word) => {
-    setEditingWord(word);
-    setAdding(true);
-  };
-
-  const wordMeaning = (word: Word) => word.translations.map((t) => t.text).join(", ") || word.definition;
 
   const practiceWords = tab === "flashcards" && activeLanguage ? activeWords : words;
+  const activeAttempts = activeLanguage ? reviewAttempts.filter((attempt) => activeWords.some((word) => word.id === attempt.vocabularyEntryId)) : reviewAttempts;
 
   return (
     <div className="space-y-6">
@@ -222,9 +241,12 @@ export function GroupTabs({
                       </option>
                     ))}
                   </select>
-                  <Button type="submit" variant="outline">
+                  <PendingSubmitButton
+                    pendingLabel="Adding..."
+                    className="h-10 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                  >
                     Add Language
-                  </Button>
+                  </PendingSubmitButton>
                 </form>
               ) : (
                 <span className="text-xs text-muted-foreground">Manage more languages on the Languages page to add them here.</span>
@@ -270,98 +292,62 @@ export function GroupTabs({
           )}
 
           {activeLanguage && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap justify-between items-center gap-4">
-                <h3 className="text-lg font-medium">
-                  {activeLanguage.name} Vocabulary ({activeWords.length})
-                </h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canImport && (
-                    <form action={importProfileVocabularyToGroupAction}>
+            <div className="space-y-3">
+              {isOwnerOrAdmin && (
+                <ConfirmActionForm
+                  action={removeLanguageAction}
+                  fields={{ groupId, languageId: activeLanguage.id }}
+                  title="Remove language"
+                  description={`Remove ${activeLanguage.name} and its shared words from this group?`}
+                  confirmLabel="Remove language"
+                  className="flex justify-end"
+                  buttonClassName="rounded-md border px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                >
+                  Remove language
+                </ConfirmActionForm>
+              )}
+              <VocabularyTable
+                title={`${activeLanguage.name} Vocabulary (${activeWords.length})`}
+                subtitle="Shared words stay in this group until copied to your own vocabulary."
+                words={activeWords}
+                languageId={activeLanguage.id}
+                groupId={groupId}
+                selectedIds={selected}
+                onToggleFlashcard={toggleFlashcard}
+                onSetFlashcards={setFlashcards}
+                addAction={addWordAction}
+                bulkAddAction={addWordsBulkAction}
+                updateAction={updateWordAction}
+                deleteAction={deleteWordAction}
+                syncControls={
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canImport && (
+                      <form action={importProfileVocabularyToGroupAction}>
+                        <input type="hidden" name="groupId" value={groupId} />
+                        <input type="hidden" name="languageId" value={activeLanguage.id} />
+                        <PendingSubmitButton
+                          disabled={!activeSync || activeSync.mineToGroupCount === 0}
+                          pendingLabel="Copying..."
+                          className="h-10 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        >
+                          Copy mine to group
+                        </PendingSubmitButton>
+                      </form>
+                    )}
+                    <form action={importGroupVocabularyToProfileAction}>
                       <input type="hidden" name="groupId" value={groupId} />
                       <input type="hidden" name="languageId" value={activeLanguage.id} />
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        className="border-rose-200 hover:bg-rose-50/50 hover:text-rose-700 text-rose-600 text-sm font-medium"
+                      <PendingSubmitButton
+                        disabled={!activeSync || activeSync.groupToMineCount === 0}
+                        pendingLabel="Copying..."
+                        className="h-10 rounded-md border px-3 text-sm font-medium hover:bg-muted"
                       >
-                        Import My {activeLanguage.name}
-                      </Button>
+                        Copy group to mine
+                      </PendingSubmitButton>
                     </form>
-                  )}
-                  <form action={importGroupVocabularyToProfileAction}>
-                    <input type="hidden" name="groupId" value={groupId} />
-                    <input type="hidden" name="languageId" value={activeLanguage.id} />
-                    <Button type="submit" variant="outline" className="text-sm font-medium">
-                      Add Group Words to Mine
-                    </Button>
-                  </form>
-                  <Button onClick={openAddWord} className="bg-rose-600 hover:bg-rose-700 text-white">
-                    + Add Word
-                  </Button>
-                </div>
-              </div>
-
-              {activeWords.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-8 text-center bg-muted/10">
-                  <p className="text-muted-foreground">No {activeLanguage.name} words have been added yet.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Share the first word for this language card.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted text-left">
-                      <tr>
-                        <th className="p-3">Word</th>
-                        <th className="p-3">Meaning</th>
-                        <th className="p-3 text-right">Flashcard</th>
-                        <th className="p-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeWords.map((word) => (
-                        <tr key={word.id} className="border-t hover:bg-muted/10">
-                          <td className="p-3 font-medium">
-                            {word.displayForm}
-                            {word.japanese?.kana && <span className="ml-2 text-xs text-muted-foreground font-normal">({word.japanese.kana})</span>}
-                          </td>
-                          <td className="p-3">{wordMeaning(word)}</td>
-                          <td className="p-3 text-right">
-                            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={selected.has(word.id)}
-                                onChange={() => toggleFlashcard(word.id)}
-                                className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
-                              />
-                              <span className="text-xs text-muted-foreground">Practice</span>
-                            </label>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex justify-end gap-2">
-                              <Button type="button" variant="outline" onClick={() => openEditWord(word)} className="h-8 px-3">
-                                Edit
-                              </Button>
-                              <form
-                                action={deleteWordAction}
-                                onSubmit={(event) => {
-                                  if (!confirm(`Delete "${word.displayForm}" from this group?`)) event.preventDefault();
-                                }}
-                              >
-                                <input type="hidden" name="groupId" value={groupId} />
-                                <input type="hidden" name="wordId" value={word.id} />
-                                <Button type="submit" variant="outline" className="h-8 px-3 text-rose-700 hover:bg-rose-50">
-                                  Delete
-                                </Button>
-                              </form>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                  </div>
+                }
+              />
             </div>
           )}
         </div>
@@ -394,7 +380,20 @@ export function GroupTabs({
               ))}
             </div>
           )}
-          <VocabularyFlashcards words={practiceWords} selectedIds={selected} />
+          <VocabularyFlashcards
+            words={practiceWords}
+            selectedIds={selected}
+            languageId={activeLanguage?.id}
+            groupId={groupId}
+            saveAttemptAction={saveAttemptAction}
+            resetAttemptsAction={resetAttemptsAction}
+          />
+          <div className="animate-panel-in grid gap-4 sm:grid-cols-4">
+            <Stat label="Days learned" value={new Set(activeAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size} />
+            <Stat label="New words" value={new Set(activeAttempts.map((attempt) => attempt.vocabularyEntryId)).size} />
+            <Stat label="Correct" value={activeAttempts.filter((attempt) => attempt.correct).length} />
+            <Stat label="Missed" value={activeAttempts.filter((attempt) => !attempt.correct).length} />
+          </div>
         </div>
       )}
 
@@ -417,8 +416,13 @@ export function GroupTabs({
                   return (
                     <tr key={member.id} className="border-t">
                       <td className="p-3 font-medium">
-                        {member.user.name || member.user.email}
-                        {member.user.name && <span className="ml-2 text-xs text-muted-foreground font-normal">({member.user.email})</span>}
+                        <div className="flex items-center gap-3">
+                          <UserAvatar name={member.user.name} email={member.user.email} image={member.user.image} size="sm" />
+                          <div>
+                            <p>{member.user.name || member.user.email}</p>
+                            {member.user.name && <p className="text-xs font-normal text-muted-foreground">{member.user.email}</p>}
+                          </div>
+                        </div>
                       </td>
                       <td className="p-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -453,19 +457,16 @@ export function GroupTabs({
                                   Save
                                 </Button>
                               </form>
-                              <form
+                              <ConfirmActionForm
                                 action={removeMemberAction}
-                                onSubmit={(event) => {
-                                  const label = member.user.name || member.user.email;
-                                  if (!confirm(`Remove ${label} from this group?`)) event.preventDefault();
-                                }}
+                                fields={{ groupId, memberId: member.id }}
+                                title="Remove member"
+                                description={`Remove ${member.user.name || member.user.email} from this group?`}
+                                confirmLabel="Remove member"
+                                buttonClassName="h-8 rounded-md border px-3 text-sm font-medium text-rose-700 hover:bg-rose-50"
                               >
-                                <input type="hidden" name="groupId" value={groupId} />
-                                <input type="hidden" name="memberId" value={member.id} />
-                                <Button type="submit" variant="outline" className="h-8 px-3 text-rose-700 hover:bg-rose-50">
-                                  Remove
-                                </Button>
-                              </form>
+                                Remove
+                              </ConfirmActionForm>
                             </div>
                           ) : (
                             <p className="text-right text-xs text-muted-foreground">Owner</p>
@@ -481,78 +482,15 @@ export function GroupTabs({
         </div>
       )}
 
-      {adding && activeLanguage && (
-        <div role="dialog" aria-modal="true" aria-label="Add vocabulary" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={handleAddSubmit} className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl space-y-4">
-            <input type="hidden" name="groupId" value={groupId} />
-            <input type="hidden" name="languageId" value={activeLanguage.id} />
-            {editingWord && <input type="hidden" name="wordId" value={editingWord.id} />}
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {editingWord ? "Edit" : "Add"} {activeLanguage.name} vocabulary
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {editingWord ? "Update this shared word." : "Share a word with this language card."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdding(false);
-                  setEditingWord(null);
-                }}
-                className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-              >
-                Close
-              </button>
-            </div>
+    </div>
+  );
+}
 
-            <div>
-              <label htmlFor="word" className="block text-sm font-medium text-muted-foreground">
-                Word
-              </label>
-              <input
-                id="word"
-                name="word"
-                required
-                autoFocus
-                defaultValue={editingWord?.displayForm ?? ""}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="meaning" className="block text-sm font-medium text-muted-foreground">
-                Meaning
-              </label>
-              <input
-                id="meaning"
-                name="meaning"
-                required
-                defaultValue={editingWord ? wordMeaning(editingWord) : ""}
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setAdding(false);
-                  setEditingWord(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-rose-600 hover:bg-rose-700 text-white">
-                {editingWord ? "Save changes" : "Share word"}
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }

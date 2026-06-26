@@ -4,44 +4,67 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createGroup, joinGroup } from "./actions";
-import { CreateGroupForm } from "@/components/create-group-form";
-import { JoinGroupForm } from "@/components/join-group-form";
+import { createGroup, joinGroup, previewGroupInvite } from "./actions";
+import { GroupModalActions } from "@/components/group-modal-actions";
 
 export default async function GroupsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const memberships = await prisma.groupMember.findMany({
-    where: { userId: session.user.id },
-    include: {
-      group: {
-        include: {
-          _count: {
-            select: {
-              members: true,
-              vocabulary: true,
-              languages: true,
+  const [memberships, languages, personalVocabulary] = await Promise.all([
+    prisma.groupMember.findMany({
+      where: { userId: session.user.id },
+      include: {
+        group: {
+          include: {
+            _count: {
+              select: {
+                members: true,
+                vocabulary: true,
+                languages: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: { joinedAt: "desc" },
-  });
+      orderBy: { joinedAt: "desc" },
+    }),
+    prisma.language.findMany({
+      where: { users: { some: { userId: session.user.id } } },
+      select: { id: true, code: true, name: true, nativeName: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.vocabularyEntry.findMany({
+      where: { userId: session.user.id, groupId: null },
+      select: {
+        id: true,
+        displayForm: true,
+        languageId: true,
+        translations: { select: { text: true } },
+      },
+      orderBy: { displayForm: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold">Study Groups</h1>
-        <p className="mt-1 text-muted-foreground">
-          Create a group to share vocabulary and practice flashcards together with friends.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">Study Groups</h1>
+          <p className="mt-1 text-muted-foreground">
+            Create a group to share vocabulary and practice flashcards together with friends.
+          </p>
+        </div>
+        <GroupModalActions
+          createGroupAction={createGroup}
+          joinGroupAction={joinGroup}
+          previewGroupInviteAction={previewGroupInvite}
+          languages={languages}
+          personalVocabulary={personalVocabulary}
+        />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Main section: User's Groups */}
-        <div className="md:col-span-2 space-y-4">
+      <div className="space-y-4">
           <h2 className="text-xl font-semibold">Your Groups</h2>
           {memberships.length === 0 ? (
             <div className="rounded-xl border border-dashed p-8 text-center bg-muted/20">
@@ -78,30 +101,6 @@ export default async function GroupsPage() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Sidebar forms: Create and Join */}
-        <div className="space-y-6">
-          {/* Join Group Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Join a Group</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <JoinGroupForm joinGroupAction={joinGroup} />
-            </CardContent>
-          </Card>
-
-          {/* Create Group Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Create a Group</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CreateGroupForm createGroupAction={createGroup} />
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );
