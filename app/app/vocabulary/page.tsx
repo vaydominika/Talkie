@@ -10,7 +10,6 @@ export default async function VocabularyPage() {
       userId: session.user.id,
       groupId: null,
     },
-    take: 50,
     include: { language: true, translations: true, japanese: true, german: true },
     orderBy: { displayForm: "asc" },
   });
@@ -32,6 +31,7 @@ export default async function VocabularyPage() {
               <tr className="border-t" key={word.id}>
                 <td className="p-3 font-medium">
                   {word.displayForm}
+                  {word.pronunciation ? <span className="ml-2 text-xs font-normal text-muted-foreground">[{word.pronunciation}]</span> : null}
                   {word.japanese?.kana ? <span className="ml-2 text-muted-foreground">{word.japanese.kana}</span> : null}
                 </td>
                 <td className="p-3">{word.translations.map((t) => t.text).join(", ")}</td>

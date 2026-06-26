@@ -11,6 +11,7 @@ type Word = {
   id: string;
   displayForm: string;
   definition: string;
+  pronunciation: string | null;
   translations: { text: string }[];
   japanese: { kana: string } | null;
 };

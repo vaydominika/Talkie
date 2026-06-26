@@ -27,6 +27,7 @@ export async function addPersonalVocabulary(formData: FormData) {
   const languageId = String(formData.get("languageId") ?? "");
   const word = String(formData.get("word") ?? "").trim();
   const meaning = String(formData.get("meaning") ?? "").trim();
+  const pronunciation = String(formData.get("pronunciation") ?? "").trim();
   const addToFlashcards = formData.get("addToFlashcards") !== "off";
 
   if (!languageId || !word || !meaning) throw new Error("All fields are required");
@@ -48,6 +49,7 @@ export async function addPersonalVocabulary(formData: FormData) {
       userId,
       displayForm: word,
       definition: meaning,
+      pronunciation: pronunciation || null,
       sourceMetadata: { addToFlashcards },
       translations: { create: { text: meaning } },
     },
@@ -64,6 +66,7 @@ function parseBulkVocabulary(raw: FormDataEntryValue | null) {
       if (!item || typeof item !== "object") return null;
       const record = item as Record<string, unknown>;
       const word = String(record.word ?? record.displayForm ?? "").trim();
+      const pronunciation = String(record.pronunciation ?? record.pronouncation ?? "").trim();
       const translationList = Array.isArray(record.translations)
         ? record.translations.map((translation) =>
             typeof translation === "string" ? translation : String((translation as Record<string, unknown>)?.text ?? ""),
@@ -71,9 +74,9 @@ function parseBulkVocabulary(raw: FormDataEntryValue | null) {
         : [];
       const meaning = String(record.meaning ?? record.definition ?? translationList[0] ?? "").trim();
       if (!word || !meaning) return null;
-      return { word, meaning };
+      return { word, meaning, pronunciation };
     })
-    .filter((item): item is { word: string; meaning: string } => Boolean(item));
+    .filter((item): item is { word: string; meaning: string; pronunciation: string } => Boolean(item));
 }
 
 export async function addPersonalVocabularyBulk(formData: FormData) {
@@ -100,6 +103,7 @@ export async function addPersonalVocabularyBulk(formData: FormData) {
         userId,
         displayForm: entry.word,
         definition: entry.meaning,
+        pronunciation: entry.pronunciation || null,
         sourceMetadata: { addToFlashcards: true, bulkJson: true },
         translations: { create: { text: entry.meaning } },
       },
@@ -115,6 +119,7 @@ export async function updatePersonalVocabulary(formData: FormData) {
   const wordId = String(formData.get("wordId") ?? "");
   const word = String(formData.get("word") ?? "").trim();
   const meaning = String(formData.get("meaning") ?? "").trim();
+  const pronunciation = String(formData.get("pronunciation") ?? "").trim();
   if (!wordId || !word || !meaning) throw new Error("All fields are required");
 
   const existingWord = await prisma.vocabularyEntry.findFirst({
@@ -137,7 +142,7 @@ export async function updatePersonalVocabulary(formData: FormData) {
   await prisma.$transaction([
     prisma.vocabularyEntry.update({
       where: { id: wordId },
-      data: { displayForm: word, definition: meaning },
+      data: { displayForm: word, definition: meaning, pronunciation: pronunciation || null },
     }),
     prisma.vocabularyTranslation.deleteMany({ where: { entryId: wordId } }),
     prisma.vocabularyTranslation.create({ data: { entryId: wordId, text: meaning } }),

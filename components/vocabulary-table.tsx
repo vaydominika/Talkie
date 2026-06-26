@@ -10,6 +10,7 @@ export type VocabularyTableWord = {
   id: string;
   displayForm: string;
   definition: string;
+  pronunciation?: string | null;
   translations: { text: string }[];
   japanese?: { kana: string } | null;
 };
@@ -111,6 +112,7 @@ export function VocabularyTable({
                 <tr key={word.id} className="animate-list-in border-t hover:bg-muted/10" style={{ animationDelay: `${index * 25}ms` }}>
                   <td className="p-3 font-medium">
                     {word.displayForm}
+                    {word.pronunciation && <span className="ml-2 text-xs font-normal text-muted-foreground">[{word.pronunciation}]</span>}
                     {word.japanese?.kana && <span className="ml-2 text-xs font-normal text-muted-foreground">({word.japanese.kana})</span>}
                   </td>
                   <td className="p-3">{meaning(word)}</td>
@@ -185,7 +187,7 @@ export function VocabularyTable({
                   required
                   rows={10}
                   spellCheck={false}
-                  defaultValue={'[\n  { "word": "Haus", "meaning": "house" },\n  { "word": "lernen", "meaning": "to learn" }\n]'}
+                  defaultValue={'[\n  { "word": "Haus", "pronunciation": "hows", "meaning": "house" },\n  { "word": "lernen", "pronunciation": "LEHR-nen", "meaning": "to learn" }\n]'}
                   className="mt-1 w-full rounded-md border bg-background p-3 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-400"
                 />
               </label>
@@ -220,6 +222,15 @@ export function VocabularyTable({
                   name="meaning"
                   required
                   defaultValue={editing ? meaning(editing) : ""}
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Pronunciation
+                <input
+                  name="pronunciation"
+                  defaultValue={editing?.pronunciation ?? ""}
+                  placeholder="e.g. LEHR-nen"
                   className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
                 />
               </label>

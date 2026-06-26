@@ -59,6 +59,7 @@ function copiedVocabularyData(orig: VocabularyToCopy, target: { groupId?: string
     levelId: orig.levelId,
     displayForm: orig.displayForm,
     definition: orig.definition,
+    pronunciation: orig.pronunciation,
     partOfSpeech: orig.partOfSpeech,
     sourceMetadata: orig.sourceMetadata ?? undefined,
     translations: {
@@ -450,6 +451,7 @@ export async function addGroupVocabulary(formData: FormData) {
   const languageId = String(formData.get("languageId") ?? "");
   const word = String(formData.get("word") ?? "").trim();
   const meaning = String(formData.get("meaning") ?? "").trim();
+  const pronunciation = String(formData.get("pronunciation") ?? "").trim();
 
   if (!groupId || !languageId || !word || !meaning) {
     throw new Error("All fields are required");
@@ -494,6 +496,7 @@ export async function addGroupVocabulary(formData: FormData) {
       languageId,
       displayForm: word,
       definition: meaning,
+      pronunciation: pronunciation || null,
       translations: { create: { text: meaning } },
     },
   });
@@ -510,6 +513,7 @@ function parseBulkVocabulary(raw: FormDataEntryValue | null) {
       if (!item || typeof item !== "object") return null;
       const record = item as Record<string, unknown>;
       const word = String(record.word ?? record.displayForm ?? "").trim();
+      const pronunciation = String(record.pronunciation ?? record.pronouncation ?? "").trim();
       const translationList = Array.isArray(record.translations)
         ? record.translations.map((translation) =>
             typeof translation === "string" ? translation : String((translation as Record<string, unknown>)?.text ?? ""),
@@ -517,9 +521,9 @@ function parseBulkVocabulary(raw: FormDataEntryValue | null) {
         : [];
       const meaning = String(record.meaning ?? record.definition ?? translationList[0] ?? "").trim();
       if (!word || !meaning) return null;
-      return { word, meaning };
+      return { word, meaning, pronunciation };
     })
-    .filter((item): item is { word: string; meaning: string } => Boolean(item));
+    .filter((item): item is { word: string; meaning: string; pronunciation: string } => Boolean(item));
 }
 
 export async function addGroupVocabularyBulk(formData: FormData) {
@@ -556,6 +560,7 @@ export async function addGroupVocabularyBulk(formData: FormData) {
         languageId,
         displayForm: entry.word,
         definition: entry.meaning,
+        pronunciation: entry.pronunciation || null,
         sourceMetadata: { addToFlashcards: true, bulkJson: true },
         translations: { create: { text: entry.meaning } },
       },
@@ -575,6 +580,7 @@ export async function updateGroupVocabulary(formData: FormData) {
   const wordId = String(formData.get("wordId") ?? "");
   const word = String(formData.get("word") ?? "").trim();
   const meaning = String(formData.get("meaning") ?? "").trim();
+  const pronunciation = String(formData.get("pronunciation") ?? "").trim();
 
   if (!groupId || !wordId || !word || !meaning) {
     throw new Error("All fields are required");
@@ -613,6 +619,7 @@ export async function updateGroupVocabulary(formData: FormData) {
       data: {
         displayForm: word,
         definition: meaning,
+        pronunciation: pronunciation || null,
       },
     }),
     prisma.vocabularyTranslation.deleteMany({

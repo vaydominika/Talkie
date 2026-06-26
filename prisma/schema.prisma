@@ -191,6 +191,7 @@ model VocabularyEntry {
   levelId String?
   displayForm String
   definition String
+  pronunciation String?
   partOfSpeech String?
   sourceMetadata Json?
   language Language @relation(fields:[languageId],references:[id])

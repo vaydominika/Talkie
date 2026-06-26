@@ -6,6 +6,7 @@ type Word = {
   id: string;
   displayForm: string;
   definition: string;
+  pronunciation: string | null;
   translations: { text: string }[];
   japanese: { kana: string } | null;
 };
@@ -84,7 +85,7 @@ export function VocabularyFlashcards({
   const card = deck[index % Math.max(deck.length, 1)];
   const prompt = card?.direction === "native-target" ? nativeAnswer(card.word) : card?.word.displayForm;
   const expected = card?.direction === "native-target" ? card.word.displayForm : card ? nativeAnswer(card.word) : "";
-  const helper = card?.direction === "native-target" ? "Write the language word." : "Write the English meaning.";
+  const helper = card?.direction === "native-target" ? card.word.pronunciation : card?.word.pronunciation;
 
   const next = () => {
     setAnswer("");
@@ -163,7 +164,7 @@ export function VocabularyFlashcards({
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-700">Vocabulary sprint</p>
         <p className="mt-8 text-5xl font-semibold text-stone-900 dark:text-stone-100">{prompt}</p>
         {card?.direction === "target-native" && card.word.japanese?.kana && <p className="mt-2 text-lg text-muted-foreground">{card.word.japanese.kana}</p>}
-        <p className="mt-3 text-xs text-muted-foreground">{helper}</p>
+        {helper && <p className="mt-3 text-sm font-medium text-muted-foreground">[{helper}]</p>}
 
         <form onSubmit={submit} className="mt-7">
           <input
