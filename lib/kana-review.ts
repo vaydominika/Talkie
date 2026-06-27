@@ -1,4 +1,4 @@
-export type KanaAttempt = { id: string; kana: string; expected: string; answer: string; correct: boolean; usedHint: boolean; at: number };
+export type KanaAttempt = { id: string; kana: string; expected: string; answer: string; correct: boolean; usedHint: boolean; at: number; source?: "sprint" | "flashcards" };
 const key = "talkie-kana-attempts";
 
 export function getKanaAttempts(): KanaAttempt[] {

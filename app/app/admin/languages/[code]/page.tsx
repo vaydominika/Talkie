@@ -30,7 +30,11 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
     include: {
       tabs: { orderBy: { position: "asc" } },
       media: { orderBy: { createdAt: "desc" } },
-      vocabulary: { include: { translations: true, japanese: true, german: true }, orderBy: { displayForm: "asc" } },
+      vocabulary: {
+        where: { userId: null, groupId: null },
+        include: { translations: true, japanese: true, german: true },
+        orderBy: { displayForm: "asc" },
+      },
       grammar: { include: { level: true }, orderBy: { title: "asc" } },
       courses: {
         include: {
@@ -48,6 +52,10 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
   const lessons = language.courses.flatMap((course) =>
     course.units.flatMap((unit) => unit.lessons.map((lesson) => ({ ...lesson, course, unit }))),
   );
+  const duplicateTemplateWordCount = language.vocabulary.length - new Set(language.vocabulary.map((word) => word.displayForm.toLowerCase().trim())).size;
+  const templateVocabulary = Array.from(
+    new Map(language.vocabulary.map((word) => [word.displayForm.toLowerCase().trim(), word])).values(),
+  );
 
   return (
     <div className="space-y-8">
@@ -57,9 +65,9 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             Back to Content Studio
           </Link>
           <p className="mt-5 font-mono text-xs uppercase tracking-[0.22em] text-rose-700">{language.code}</p>
-          <h1 className="font-serif text-4xl">{language.name} studio</h1>
+          <h1 className="font-serif text-4xl">{language.name} template studio</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {language.nativeName} - Manage this language&apos;s learner page, words, lessons, images, and gates.
+            {language.nativeName} - Manage reusable starter tabs, sample words, lessons, images, and gates.
           </p>
         </div>
         <Button asChild variant="outline">
@@ -109,7 +117,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           </div>
         </Panel>
 
-        <Panel eyebrow="Words" title="Vocabulary">
+        <Panel eyebrow="Starter words" title="Template vocabulary">
           <form action={createVocabulary} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
             <input type="hidden" name="languageId" value={language.id} />
             <div className="grid gap-3 sm:grid-cols-2">
@@ -131,9 +139,14 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
               ) : null}
             </div>
             <Check name="addToFlashcards" label="Add to flashcards" defaultChecked />
-            <Button>Add vocabulary</Button>
+            <Button>Add template vocabulary</Button>
           </form>
           <div className="mt-4 max-h-96 overflow-auto rounded-2xl border">
+            {duplicateTemplateWordCount > 0 ? (
+              <p className="border-b bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                {duplicateTemplateWordCount} duplicate template word{duplicateTemplateWordCount === 1 ? "" : "s"} hidden. New duplicates are blocked.
+              </p>
+            ) : null}
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-background text-left">
                 <tr>
@@ -143,7 +156,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                 </tr>
               </thead>
               <tbody>
-                {language.vocabulary.map((word) => (
+                {templateVocabulary.map((word) => (
                   <tr key={word.id} className="border-t">
                     <Td>
                       {word.displayForm}
@@ -201,18 +214,24 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           </div>
         </Panel>
 
-        <Panel eyebrow="Images" title="Media">
-          <form action={createMedia} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
-            <input type="hidden" name="languageId" value={language.id} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="URL" name="url" placeholder="/stroke-order/a.png" required />
-              <Field label="Alt text" name="altText" placeholder="Stroke order for あ" />
-              <Field label="Kind" name="kind" defaultValue="STROKE_ORDER" />
-              <Field label="Target key" name="targetKey" placeholder="あ" />
-            </div>
-            <TextArea label="Note" name="note" placeholder="Source, license, or usage note" />
-            <Button>Add media</Button>
-          </form>
+        <Panel eyebrow="Stroke order" title="Kana and kanji images">
+          {language.code === "ja" ? (
+            <form action={createMedia} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+              <input type="hidden" name="languageId" value={language.id} />
+              <input type="hidden" name="kind" value="STROKE_ORDER" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Image URL" name="url" placeholder="/stroke-order/a.png" required />
+                <Field label="Alt text" name="altText" placeholder="Stroke order for あ" />
+                <Field label="Kana or kanji" name="targetKey" placeholder="あ" required />
+              </div>
+              <TextArea label="Note" name="note" placeholder="Source, license, or usage note" />
+              <Button>Add stroke-order image</Button>
+            </form>
+          ) : (
+            <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+              Stroke-order images are only used for Japanese kana and kanji.
+            </p>
+          )}
           <div className="mt-4 grid gap-3">
             {language.media.map((asset) => (
               <div key={asset.id} className="rounded-2xl border p-3 text-sm">

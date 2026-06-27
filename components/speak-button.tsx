@@ -76,11 +76,18 @@ export function SpeakButton({
 
     const stopThisAudio = () => {
       isStopped = true;
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
       if (localAudio) {
         localAudio.pause();
       }
       if (localAudioUrl) {
         URL.revokeObjectURL(localAudioUrl);
+        localAudioUrl = null;
+      }
+      if (activeAudioStopCallback === stopThisAudio) {
+        activeAudioStopCallback = null;
       }
       setLoading(false);
     };
@@ -101,19 +108,20 @@ export function SpeakButton({
       localAudioUrl = URL.createObjectURL(await response.blob());
       localAudio = new Audio(localAudioUrl);
 
-      const cleanup = () => {
+      const cleanup = (clearActiveAudio = true) => {
         if (localAudioUrl) {
           URL.revokeObjectURL(localAudioUrl);
+          localAudioUrl = null;
         }
-        if (activeAudioStopCallback === stopThisAudio) {
+        if (clearActiveAudio && activeAudioStopCallback === stopThisAudio) {
           activeAudioStopCallback = null;
         }
         setLoading(false);
       };
 
-      localAudio.addEventListener("ended", cleanup, { once: true });
+      localAudio.addEventListener("ended", () => cleanup(), { once: true });
       localAudio.addEventListener("error", () => {
-        cleanup();
+        cleanup(false);
         speakInBrowser();
       }, { once: true });
 
@@ -121,6 +129,10 @@ export function SpeakButton({
     } catch {
       if (localAudioUrl) {
         URL.revokeObjectURL(localAudioUrl);
+        localAudioUrl = null;
+      }
+      if (activeAudioStopCallback === stopThisAudio) {
+        activeAudioStopCallback = null;
       }
       setLoading(false);
       if (!isStopped) {
@@ -148,5 +160,3 @@ export function SpeakButton({
 
 // Global/Module-level reference to stop the active audio and reset its button state
 let activeAudioStopCallback: (() => void) | null = null;
-
-

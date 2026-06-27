@@ -8,12 +8,20 @@ import { Check, Field, Panel, Stat } from "./ui";
 
 export default async function AdminPage() {
   await ensureAdmin();
-  const languages = await prisma.language.findMany({
-    orderBy: [{ sidebarPosition: "asc" }, { name: "asc" }],
-    include: {
-      _count: { select: { tabs: true, vocabulary: true, grammar: true, courses: true, media: true } },
-    },
-  });
+  const [languages, templateVocabularyCounts] = await Promise.all([
+    prisma.language.findMany({
+      orderBy: [{ sidebarPosition: "asc" }, { name: "asc" }],
+      include: {
+        _count: { select: { tabs: true, grammar: true, courses: true, media: true } },
+      },
+    }),
+    prisma.vocabularyEntry.groupBy({
+      by: ["languageId"],
+      where: { userId: null, groupId: null },
+      _count: { _all: true },
+    }),
+  ]);
+  const templateVocabularyCountByLanguage = new Map(templateVocabularyCounts.map((item) => [item.languageId, item._count._all]));
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -23,21 +31,21 @@ export default async function AdminPage() {
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-rose-300">Talkie atelier</p>
             <h1 className="mt-3 font-serif text-4xl">Content Studio.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
-              Start with languages here. Each language has its own workbench for tabs, vocabulary, grammar, media, and tests.
+              Create reusable starter templates here. Users import these samples into their own private language spaces.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-stone-400">Inventory</p>
             <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
               <Stat label="Languages" value={languages.length} />
-              <Stat label="Vocab" value={languages.reduce((sum, language) => sum + language._count.vocabulary, 0)} />
+              <Stat label="Template vocab" value={templateVocabularyCounts.reduce((sum, item) => sum + item._count._all, 0)} />
               <Stat label="Grammar" value={languages.reduce((sum, language) => sum + language._count.grammar, 0)} />
             </dl>
           </div>
         </div>
       </section>
 
-      <Panel eyebrow="Create" title="Add a language">
+      <Panel eyebrow="Create" title="Add a template language">
         <form action={createLanguage} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
           <div className="grid gap-3 sm:grid-cols-6">
             <Field label="Name" name="name" placeholder="Italian" required />
@@ -49,7 +57,7 @@ export default async function AdminPage() {
             <Field label="Position" name="sidebarPosition" type="number" defaultValue={languages.length + 1} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Use provider <span className="font-mono">azure</span> with a neural voice such as <span className="font-mono">de-DE-KatjaNeural</span>. Browser speech is only a fallback.
+            Admin languages are reusable templates. A user's own words stay private after import.
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Check name="sidebarVisible" label="Show in sidebar" defaultChecked />
@@ -74,7 +82,7 @@ export default async function AdminPage() {
 
             <dl className="mt-6 flex flex-wrap gap-3 text-center text-xs">
               <MiniStat label="Tabs" value={language._count.tabs} />
-              <MiniStat label="Words" value={language._count.vocabulary} />
+              <MiniStat label="Template words" value={templateVocabularyCountByLanguage.get(language.id) ?? 0} />
               <MiniStat label="Grammar" value={language._count.grammar} />
               <MiniStat label="Courses" value={language._count.courses} />
               <MiniStat label="Media" value={language._count.media} />

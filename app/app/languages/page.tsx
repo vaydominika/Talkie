@@ -24,9 +24,9 @@ export default async function ManageLanguagesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold">Manage Languages</h1>
+        <h1 className="text-3xl font-semibold">My Languages</h1>
         <p className="mt-1 text-muted-foreground">
-          Choose the languages you want to study. These will appear in your sidebar and progress dashboard.
+          Import starter language templates into your private study space. Words you add afterward stay yours.
         </p>
       </div>
 
@@ -46,17 +46,25 @@ export default async function ManageLanguagesPage() {
               </CardHeader>
               <CardContent>
                 {isActive ? (
-                  <form action={removeLanguageFromProfile}>
-                    <input type="hidden" name="languageId" value={language.id} />
-                    <Button type="submit" variant="outline" className="w-full text-rose-600 border-rose-200 hover:bg-rose-50">
-                      Remove from Profile
-                    </Button>
-                  </form>
+                  <div className="space-y-2">
+                    <form action={addLanguageToProfile}>
+                      <input type="hidden" name="languageId" value={language.id} />
+                      <Button type="submit" variant="outline" className="w-full">
+                        Import starter words
+                      </Button>
+                    </form>
+                    <form action={removeLanguageFromProfile}>
+                      <input type="hidden" name="languageId" value={language.id} />
+                      <Button type="submit" variant="outline" className="w-full text-rose-600 border-rose-200 hover:bg-rose-50">
+                        Remove from My Languages
+                      </Button>
+                    </form>
+                  </div>
                 ) : (
                   <form action={addLanguageToProfile}>
                     <input type="hidden" name="languageId" value={language.id} />
                     <Button type="submit" className="w-full bg-rose-600 hover:bg-rose-700 text-white">
-                      Add to Profile
+                      Import starter template
                     </Button>
                   </form>
                 )}

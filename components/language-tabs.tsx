@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { KanaChecker } from "@/components/kana-checker";
 import { KanaFlashcards } from "@/components/kana-flashcards";
+import { JapaneseReview } from "@/components/japanese-review";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
@@ -117,9 +118,11 @@ export function LanguageTabs({
       : [...base.slice(0, 3), { id: "review", title: "Review", slug: "review", type: "CUSTOM" as const }, ...base.slice(3)];
   }, [tabs]);
   const [tab, setTab] = useState(visibleTabs[0]?.slug ?? "learning");
+  const [tabReady, setTabReady] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(groupSyncTargets[0]?.id ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const activeTab = visibleTabs.find((item) => item.slug === tab) ?? visibleTabs[0];
+  const activeTabStorageKey = `talkie-language-${languageCode}-active-tab`;
+  const activeTab = tabReady ? visibleTabs.find((item) => item.slug === tab) ?? visibleTabs[0] : undefined;
   const isJapanese = languageCode.toLowerCase() === "ja";
   const selectedGroup = groupSyncTargets.find((group) => group.id === selectedGroupId) ?? groupSyncTargets[0];
   const correctCount = reviewAttempts.filter((attempt) => attempt.correct).length;
@@ -142,8 +145,28 @@ export function LanguageTabs({
   }, [words]);
 
   useEffect(() => {
-    if (!visibleTabs.some((item) => item.slug === tab)) setTab(visibleTabs[0]?.slug ?? "learning");
-  }, [tab, visibleTabs]);
+    const stored = localStorage.getItem(activeTabStorageKey);
+    if (stored && visibleTabs.some((item) => item.slug === stored)) {
+      setTab(stored);
+    } else {
+      setTab(visibleTabs[0]?.slug ?? "learning");
+    }
+    setTabReady(true);
+  }, [activeTabStorageKey, visibleTabs]);
+
+  useEffect(() => {
+    if (!tabReady) return;
+    if (!visibleTabs.some((item) => item.slug === tab)) {
+      const fallbackTab = visibleTabs[0]?.slug ?? "learning";
+      setTab(fallbackTab);
+      localStorage.setItem(activeTabStorageKey, fallbackTab);
+    }
+  }, [activeTabStorageKey, tab, tabReady, visibleTabs]);
+
+  const selectTab = (slug: string) => {
+    setTab(slug);
+    localStorage.setItem(activeTabStorageKey, slug);
+  };
 
   const toggleFlashcard = (id: string) =>
     setSelected((current) => {
@@ -170,9 +193,9 @@ export function LanguageTabs({
         {visibleTabs.map((item) => (
           <button
             key={item.id}
-            onClick={() => setTab(item.slug)}
+            onClick={() => selectTab(item.slug)}
             className={`mr-5 border-b-2 px-1 pb-3 text-sm font-medium ${
-              tab === item.slug ? "border-rose-600 text-rose-700" : "border-transparent text-muted-foreground"
+              tabReady && tab === item.slug ? "border-rose-600 text-rose-700" : "border-transparent text-muted-foreground"
             }`}
           >
             {item.title}
@@ -180,7 +203,7 @@ export function LanguageTabs({
         ))}
       </div>
 
-      {activeTab?.type === "LEARNING" ? (
+      {!tabReady ? null : activeTab?.type === "LEARNING" ? (
         isJapanese ? (
           <KanaChecker strokeOrderImages={strokeOrderImages} />
         ) : (
@@ -262,7 +285,10 @@ export function LanguageTabs({
           }
         />
       ) : activeTab?.slug === "review" ? (
-        <div className="space-y-6">
+        isJapanese ? (
+          <JapaneseReview reviewAttempts={reviewAttempts} />
+        ) : (
+          <div className="space-y-6">
           <div className="animate-panel-in grid gap-4 sm:grid-cols-4">
             <Stat label="Days learned" value={learnedDays} />
             <Stat label="New words" value={uniqueReviewed} />
@@ -300,7 +326,8 @@ export function LanguageTabs({
               </table>
             </div>
           )}
-        </div>
+          </div>
+        )
       ) : activeTab?.type === "GRAMMAR" ? (
         <div className="grid gap-4 md:grid-cols-2">
           {grammar.map((point) => {

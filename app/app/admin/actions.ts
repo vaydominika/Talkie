@@ -134,6 +134,15 @@ export async function createVocabulary(formData: FormData) {
   if (!languageId || !displayForm || !definition) return;
   const language = await prisma.language.findUnique({ where: { id: languageId } });
   if (!language) return;
+  const duplicate = await prisma.vocabularyEntry.findFirst({
+    where: {
+      languageId,
+      userId: null,
+      groupId: null,
+      displayForm: { equals: displayForm, mode: "insensitive" },
+    },
+  });
+  if (duplicate) throw new Error(`Template vocabulary already contains "${displayForm}".`);
   await prisma.vocabularyEntry.create({
     data: {
       languageId,
@@ -141,7 +150,7 @@ export async function createVocabulary(formData: FormData) {
       definition,
       pronunciation: pronunciation || null,
       partOfSpeech: partOfSpeech || null,
-      sourceMetadata: { addToFlashcards },
+      sourceMetadata: { addToFlashcards, template: true },
       translations: { create: { text: definition } },
       japanese: language.code === "ja" && kana ? { create: { kana, romaji: romaji || null } } : undefined,
       german: language.code === "de" && (article || plural) ? { create: { article: article || null, plural: plural || null } } : undefined,
@@ -192,14 +201,23 @@ export async function createMedia(formData: FormData) {
   await ensureAdmin();
   const languageId = text(formData, "languageId");
   const url = text(formData, "url");
+  const kind = text(formData, "kind") || "STROKE_ORDER";
+  const targetKey = text(formData, "targetKey");
   if (!url) return;
+  const language = languageId ? await prisma.language.findUnique({ where: { id: languageId }, select: { code: true } }) : null;
+  if (kind === "STROKE_ORDER" && language?.code !== "ja") {
+    throw new Error("Stroke-order images are only supported for Japanese kana and kanji.");
+  }
+  if (kind === "STROKE_ORDER" && !targetKey) {
+    throw new Error("Stroke-order images need a kana or kanji target key.");
+  }
   await prisma.mediaAsset.create({
     data: {
       languageId: languageId || null,
       url,
       altText: text(formData, "altText"),
-      kind: text(formData, "kind") || "IMAGE",
-      targetKey: text(formData, "targetKey") || null,
+      kind,
+      targetKey: targetKey || null,
       metadata: { note: text(formData, "note") },
     },
   });

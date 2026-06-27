@@ -110,8 +110,10 @@ export function GroupTabs({
   resetAttemptsAction: AttemptAction;
 }) {
   const [tab, setTab] = useState("vocabulary");
+  const [tabReady, setTabReady] = useState(false);
   const [activeLanguageId, setActiveLanguageId] = useState(groupLanguages[0]?.id ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const activeTabStorageKey = `talkie-group-${groupId}-active-tab`;
 
   const isOwnerOrAdmin = currentUserRole === "OWNER" || currentUserRole === "ADMIN";
   const isOwner = currentUserRole === "OWNER";
@@ -135,11 +137,27 @@ export function GroupTabs({
   const activeSync = syncCounts.find((item) => item.languageId === activeLanguage?.id);
 
   useEffect(() => {
+    const stored = localStorage.getItem(activeTabStorageKey);
+    if (stored && ["vocabulary", "flashcards", "members"].includes(stored)) {
+      setTab(stored);
+    } else {
+      setTab("vocabulary");
+    }
+    setTabReady(true);
+  }, [activeTabStorageKey]);
+
+  useEffect(() => {
+    if (!tabReady) return;
     if (tab === "flashcards" && !activeLanguageId) return;
     if (!activeLanguageId || !groupLanguages.some((language) => language.id === activeLanguageId)) {
       setActiveLanguageId(groupLanguages[0]?.id ?? "");
     }
-  }, [activeLanguageId, groupLanguages, tab]);
+  }, [activeLanguageId, groupLanguages, tab, tabReady]);
+
+  const selectTab = (slug: string) => {
+    setTab(slug);
+    localStorage.setItem(activeTabStorageKey, slug);
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem(`talkie-group-${groupId}-flashcards`);
@@ -190,9 +208,9 @@ export function GroupTabs({
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               className={`mr-6 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
-                tab === item.id ? "border-rose-600 text-rose-700 font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"
+                tabReady && tab === item.id ? "border-rose-600 text-rose-700 font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               {item.label}
@@ -200,7 +218,7 @@ export function GroupTabs({
           ))}
         </div>
 
-        {isOwnerOrAdmin && tab !== "flashcards" && (
+        {tabReady && isOwnerOrAdmin && tab !== "flashcards" && (
           <form className="pb-3 flex items-center gap-2 text-xs">
             <input type="hidden" name="groupId" value={groupId} />
             <input
@@ -223,7 +241,7 @@ export function GroupTabs({
         )}
       </div>
 
-      {tab === "vocabulary" && (
+      {tabReady && tab === "vocabulary" && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -360,7 +378,7 @@ export function GroupTabs({
         </div>
       )}
 
-      {tab === "flashcards" && (
+      {tabReady && tab === "flashcards" && (
         <div className="space-y-4">
           {groupLanguages.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -407,7 +425,7 @@ export function GroupTabs({
         </div>
       )}
 
-      {tab === "members" && (
+      {tabReady && tab === "members" && (
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Group Members ({members.length})</h3>
           <div className="overflow-x-auto rounded-lg border">
