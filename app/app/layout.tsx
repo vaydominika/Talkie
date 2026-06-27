@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Menu } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { SidebarLink } from "@/components/sidebar-link";
@@ -37,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = session.user.role === "ADMIN" || user?.role === "ADMIN";
 
   return (
-    <div className="min-h-screen md:pl-56">
+    <div className="relative min-h-screen md:pl-56">
       <aside className="fixed inset-y-0 left-0 hidden h-screen w-56 flex-col border-r bg-background p-4 md:flex">
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <Link className="font-semibold" href="/app/dashboard">
@@ -109,10 +110,85 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
       <div>
-        <header className="flex h-14 items-center justify-between border-b px-4">
-          <Link className="font-semibold md:hidden" href="/app/dashboard">
-            Talkie
-          </Link>
+        <header className="sticky top-0 z-[100] flex h-14 items-center justify-between border-b bg-background px-4 md:static">
+          <div className="flex items-center gap-3 md:hidden">
+            <details className="group">
+              <summary className="inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border text-muted-foreground transition hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <Menu className="h-5 w-5" aria-hidden />
+                <span className="sr-only">Open menu</span>
+              </summary>
+              <div className="fixed inset-x-0 top-14 z-[110] border-b bg-background shadow-2xl">
+                <div className="max-h-[calc(100vh-3.5rem)] overflow-y-auto p-4">
+                  <nav className="space-y-6">
+                    <div className="space-y-1">
+                      <SidebarLink href="/app/dashboard" exact>
+                        Dashboard
+                      </SidebarLink>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="px-3 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
+                        Learning
+                      </p>
+                      <SidebarLink href="/app/languages">
+                        Languages
+                      </SidebarLink>
+                      <SidebarLink href="/app/groups">
+                        Groups
+                      </SidebarLink>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="px-3 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
+                        Progress
+                      </p>
+                      <SidebarLink href="/app/review">
+                        Stats
+                      </SidebarLink>
+                    </div>
+                    {languages.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="px-3 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
+                          My Languages
+                        </p>
+                        {languages.map((language) => (
+                          <SidebarLink
+                            key={language.code}
+                            href={languageHref(language) as Route}
+                          >
+                            {language.name}
+                          </SidebarLink>
+                        ))}
+                      </div>
+                    )}
+                    {isAdmin && (
+                      <SidebarLink href="/app/admin">
+                        Admin
+                      </SidebarLink>
+                    )}
+                  </nav>
+                  <div className="mt-5 border-t pt-4">
+                    <div className="mb-3 flex items-center gap-3 px-3">
+                      <UserAvatar name={user?.name} email={user?.email} image={user?.image} size="sm" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{displayName}</p>
+                        {user?.name && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+                      </div>
+                    </div>
+                    <SidebarLink href="/app/settings">
+                      Settings
+                    </SidebarLink>
+                    <form action={leave} className="mt-1">
+                      <button className="w-full rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                        Sign out
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </details>
+            <Link className="font-semibold" href="/app/dashboard">
+              Talkie
+            </Link>
+          </div>
           <span className="ml-auto text-sm text-muted-foreground">{displayName}</span>
         </header>
         <main className="animate-page-in mx-auto max-w-6xl p-4 sm:p-6">{children}</main>
