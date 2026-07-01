@@ -7,13 +7,21 @@ import { Button } from "@/components/ui/button";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 import {
+  createCourse,
+  createCourseUnit,
   createGrammarLesson,
+  createLesson,
+  createLessonBlock,
   createLessonTest,
   createMedia,
   createTab,
   createVocabulary,
   ensureAdmin,
+  updateCourse,
+  updateCourseUnit,
   updateGrammarLesson,
+  updateLesson,
+  updateLessonBlock,
   updateTab,
 } from "../../actions";
 import { Field, Panel, Select, Td, TextArea, Th, Check } from "../../ui";
@@ -25,33 +33,50 @@ const questionTypes = Object.values(TestQuestionType);
 export default async function AdminLanguagePage({ params }: { params: Promise<{ code: string }> }) {
   await ensureAdmin();
   const { code } = await params;
-  const language = await prisma.language.findUnique({
-    where: { code },
-    include: {
-      tabs: { orderBy: { position: "asc" } },
-      media: { orderBy: { createdAt: "desc" } },
-      vocabulary: {
-        where: { userId: null, groupId: null },
-        include: { translations: true, japanese: true, german: true },
-        orderBy: { displayForm: "asc" },
-      },
-      grammar: { include: { level: true }, orderBy: { title: "asc" } },
-      courses: {
-        include: {
-          units: {
-            orderBy: { position: "asc" },
-            include: { lessons: { orderBy: { position: "asc" }, include: { test: { include: { questions: true } } } } },
-          },
+  const [language, levels] = await Promise.all([
+    prisma.language.findUnique({
+      where: { code },
+      include: {
+        tabs: { orderBy: { position: "asc" } },
+        media: { orderBy: { createdAt: "desc" } },
+        vocabulary: {
+          where: { userId: null, groupId: null },
+          include: { translations: true, japanese: true, german: true },
+          orderBy: { displayForm: "asc" },
         },
-        orderBy: { title: "asc" },
+        grammar: { include: { level: true }, orderBy: { title: "asc" } },
+        courses: {
+          include: {
+            level: true,
+            units: {
+              orderBy: { position: "asc" },
+              include: {
+                lessons: {
+                  orderBy: { position: "asc" },
+                  include: {
+                    blocks: { orderBy: { position: "asc" } },
+                    test: { include: { questions: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { title: "asc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.proficiencyLevel.findMany({ orderBy: { rank: "asc" } }),
+  ]);
   if (!language) notFound();
 
   const lessons = language.courses.flatMap((course) =>
     course.units.flatMap((unit) => unit.lessons.map((lesson) => ({ ...lesson, course, unit }))),
   );
+  const courseOptions = language.courses.map((course) => [course.id, course.title] as [string, string]);
+  const unitOptions = language.courses.flatMap((course) =>
+    course.units.map((unit) => [unit.id, `${course.title} / ${unit.title}`] as [string, string]),
+  );
+  const levelOptions = levels.map((level) => [level.id, `${level.code} - ${level.name}`] as [string, string]);
   const duplicateTemplateWordCount = language.vocabulary.length - new Set(language.vocabulary.map((word) => word.displayForm.toLowerCase().trim())).size;
   const templateVocabulary = Array.from(
     new Map(language.vocabulary.map((word) => [word.displayForm.toLowerCase().trim(), word])).values(),
@@ -245,6 +270,149 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           </div>
         </Panel>
       </section>
+
+      <Panel eyebrow="Courses" title="Course lessons">
+        <div className="grid gap-4 xl:grid-cols-3">
+          <form action={createCourse} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+            <input type="hidden" name="languageId" value={language.id} />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <Field label="Course title" name="title" placeholder="Japanese foundations" required />
+              <Field label="Slug" name="slug" placeholder="japanese-foundations" />
+              <Select label="Level" name="levelId" options={levelOptions} />
+              <Select label="Status" name="status" options={statuses.map((status) => [status, status])} defaultValue="PUBLISHED" />
+            </div>
+            <TextArea label="Description" name="description" placeholder="What this course helps learners do." />
+            <Button>Add course</Button>
+          </form>
+
+          <form action={createCourseUnit} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+            {courseOptions.length ? (
+              <>
+                <Select label="Course" name="courseId" options={courseOptions} />
+                <Field label="Unit title" name="title" placeholder="Unit 1: Sounds and greetings" required />
+                <Field label="Position" name="position" type="number" placeholder="Auto" />
+                <Button>Add unit</Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Create a course before adding units.</p>
+            )}
+          </form>
+
+          <form action={createLesson} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+            {unitOptions.length ? (
+              <>
+                <Select label="Unit" name="unitId" options={unitOptions} />
+                <Field label="Lesson title" name="title" placeholder="Reading あいうえお" required />
+                <Field label="Position" name="position" type="number" placeholder="Auto" />
+                <Button>Add lesson</Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Create a unit before adding lessons.</p>
+            )}
+          </form>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          {language.courses.map((course) => (
+            <details key={course.id} className="rounded-2xl border p-4">
+              <summary className="cursor-pointer font-semibold">
+                {course.title} <span className="font-normal text-muted-foreground">{course.level.code}</span>
+              </summary>
+
+              <form action={updateCourse} className="mt-4 grid gap-3 rounded-2xl bg-muted/30 p-3">
+                <input type="hidden" name="id" value={course.id} />
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <Field label="Title" name="title" defaultValue={course.title} required />
+                  <Field label="Slug" name="slug" defaultValue={course.slug} required />
+                  <Select label="Level" name="levelId" options={levelOptions} defaultValue={course.levelId} />
+                  <Select label="Status" name="status" options={statuses.map((status) => [status, status])} defaultValue={course.status} />
+                </div>
+                <TextArea label="Description" name="description" defaultValue={course.description} />
+                <Button variant="outline">Save course</Button>
+              </form>
+
+              <div className="mt-4 space-y-3">
+                {course.units.map((unit) => (
+                  <details key={unit.id} className="rounded-xl border p-3">
+                    <summary className="cursor-pointer font-medium">
+                      {unit.position}. {unit.title}
+                    </summary>
+
+                    <form action={updateCourseUnit} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+                      <input type="hidden" name="id" value={unit.id} />
+                      <Field label="Unit title" name="title" defaultValue={unit.title} required />
+                      <Field label="Position" name="position" type="number" defaultValue={unit.position} />
+                      <Button variant="outline" className="self-end">
+                        Save unit
+                      </Button>
+                    </form>
+
+                    <div className="mt-3 space-y-3">
+                      {unit.lessons.map((lesson) => (
+                        <details key={lesson.id} className="rounded-xl border p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">
+                            {lesson.position}. {lesson.title} <span className="font-normal text-muted-foreground">{lesson.blocks.length} blocks</span>
+                          </summary>
+
+                          <form action={updateLesson} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+                            <input type="hidden" name="id" value={lesson.id} />
+                            <Field label="Lesson title" name="title" defaultValue={lesson.title} required />
+                            <Field label="Position" name="position" type="number" defaultValue={lesson.position} />
+                            <Button variant="outline" className="self-end">
+                              Save lesson
+                            </Button>
+                          </form>
+
+                          <form action={createLessonBlock} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3">
+                            <input type="hidden" name="lessonId" value={lesson.id} />
+                            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                              <Field label="Block title" name="title" placeholder="Practice note" />
+                              <Field label="Position" name="position" type="number" placeholder="Auto" />
+                            </div>
+                            <AdminRichEditor name="content" />
+                            <Button>Add block</Button>
+                          </form>
+
+                          <div className="mt-3 space-y-3">
+                            {lesson.blocks.map((block) => (
+                              <details key={block.id} className="rounded-xl border p-3">
+                                <summary className="cursor-pointer text-sm font-medium">
+                                  {block.position}. {block.title || "Untitled block"}
+                                </summary>
+                                <form action={updateLessonBlock} className="mt-3 grid gap-3">
+                                  <input type="hidden" name="id" value={block.id} />
+                                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                                    <Field label="Block title" name="title" defaultValue={block.title ?? ""} />
+                                    <Field label="Position" name="position" type="number" defaultValue={block.position} />
+                                  </div>
+                                  <AdminRichEditor name="content" initialHtml={block.content} />
+                                  <Button variant="outline">Save block</Button>
+                                </form>
+                              </details>
+                            ))}
+                            {lesson.blocks.length === 0 ? (
+                              <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No blocks yet.</p>
+                            ) : null}
+                          </div>
+                        </details>
+                      ))}
+                      {unit.lessons.length === 0 ? (
+                        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No lessons yet.</p>
+                      ) : null}
+                    </div>
+                  </details>
+                ))}
+                {course.units.length === 0 ? (
+                  <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No units yet.</p>
+                ) : null}
+              </div>
+            </details>
+          ))}
+          {language.courses.length === 0 ? (
+            <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">No courses exist for {language.name} yet.</p>
+          ) : null}
+        </div>
+      </Panel>
 
       <Panel eyebrow="Progress gates" title="Tests">
         {lessons.length ? (

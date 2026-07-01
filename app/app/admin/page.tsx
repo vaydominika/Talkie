@@ -57,7 +57,7 @@ export default async function AdminPage() {
             <Field label="Position" name="sidebarPosition" type="number" defaultValue={languages.length + 1} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Admin languages are reusable templates. A user's own words stay private after import.
+            Admin languages are reusable templates. A user&apos;s own words stay private after import.
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Check name="sidebarVisible" label="Show in sidebar" defaultChecked />

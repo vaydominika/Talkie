@@ -197,6 +197,158 @@ export async function updateGrammarLesson(formData: FormData) {
   await refreshLanguage(lesson.languageId);
 }
 
+export async function createCourse(formData: FormData) {
+  await ensureAdmin();
+  const languageId = text(formData, "languageId");
+  const title = text(formData, "title");
+  const levelId = text(formData, "levelId");
+  if (!languageId || !title || !levelId) return;
+
+  await prisma.course.create({
+    data: {
+      languageId,
+      levelId,
+      title,
+      slug: text(formData, "slug") || slugify(title),
+      description: text(formData, "description"),
+      status: text(formData, "status") as ContentStatus,
+    },
+  });
+  await refreshLanguage(languageId);
+}
+
+export async function updateCourse(formData: FormData) {
+  await ensureAdmin();
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const course = await prisma.course.update({
+    where: { id },
+    data: {
+      title: text(formData, "title"),
+      slug: text(formData, "slug"),
+      description: text(formData, "description"),
+      levelId: text(formData, "levelId"),
+      status: text(formData, "status") as ContentStatus,
+    },
+  });
+  await refreshLanguage(course.languageId);
+}
+
+export async function createCourseUnit(formData: FormData) {
+  await ensureAdmin();
+  const courseId = text(formData, "courseId");
+  const title = text(formData, "title");
+  if (!courseId || !title) return;
+
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) return;
+
+  const nextPosition = await prisma.courseUnit.count({ where: { courseId } });
+  await prisma.courseUnit.create({
+    data: {
+      courseId,
+      title,
+      position: integer(formData, "position", nextPosition),
+    },
+  });
+  await refreshLanguage(course.languageId);
+}
+
+export async function updateCourseUnit(formData: FormData) {
+  await ensureAdmin();
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const unit = await prisma.courseUnit.update({
+    where: { id },
+    data: {
+      title: text(formData, "title"),
+      position: integer(formData, "position"),
+    },
+    include: { course: true },
+  });
+  await refreshLanguage(unit.course.languageId);
+}
+
+export async function createLesson(formData: FormData) {
+  await ensureAdmin();
+  const unitId = text(formData, "unitId");
+  const title = text(formData, "title");
+  if (!unitId || !title) return;
+
+  const unit = await prisma.courseUnit.findUnique({ where: { id: unitId }, include: { course: true } });
+  if (!unit) return;
+
+  const nextPosition = await prisma.lesson.count({ where: { unitId } });
+  await prisma.lesson.create({
+    data: {
+      unitId,
+      title,
+      position: integer(formData, "position", nextPosition),
+    },
+  });
+  await refreshLanguage(unit.course.languageId);
+}
+
+export async function updateLesson(formData: FormData) {
+  await ensureAdmin();
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const lesson = await prisma.lesson.update({
+    where: { id },
+    data: {
+      title: text(formData, "title"),
+      position: integer(formData, "position"),
+    },
+    include: { unit: { include: { course: true } } },
+  });
+  revalidatePath(`/app/lessons/${lesson.id}`);
+  await refreshLanguage(lesson.unit.course.languageId);
+}
+
+export async function createLessonBlock(formData: FormData) {
+  await ensureAdmin();
+  const lessonId = text(formData, "lessonId");
+  const title = text(formData, "title");
+  const content = text(formData, "content");
+  if (!lessonId || !content) return;
+
+  const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, include: { unit: { include: { course: true } } } });
+  if (!lesson) return;
+
+  const nextPosition = await prisma.lessonBlock.count({ where: { lessonId } });
+  await prisma.lessonBlock.create({
+    data: {
+      lessonId,
+      title: title || null,
+      content,
+      position: integer(formData, "position", nextPosition),
+    },
+  });
+  revalidatePath(`/app/lessons/${lesson.id}`);
+  await refreshLanguage(lesson.unit.course.languageId);
+}
+
+export async function updateLessonBlock(formData: FormData) {
+  await ensureAdmin();
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const block = await prisma.lessonBlock.update({
+    where: { id },
+    data: {
+      title: text(formData, "title") || null,
+      content: text(formData, "content"),
+      position: integer(formData, "position"),
+    },
+    include: { lesson: { include: { unit: { include: { course: true } } } } },
+  });
+  revalidatePath(`/app/lessons/${block.lesson.id}`);
+  await refreshLanguage(block.lesson.unit.course.languageId);
+}
+
 export async function createMedia(formData: FormData) {
   await ensureAdmin();
   const languageId = text(formData, "languageId");
@@ -222,6 +374,14 @@ export async function createMedia(formData: FormData) {
     },
   });
   await refreshLanguage(languageId || undefined);
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export async function createLessonTest(formData: FormData) {

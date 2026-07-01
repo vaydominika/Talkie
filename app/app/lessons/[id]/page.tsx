@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,10 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const lesson = await prisma.lesson.findUnique({
     where: { id },
-    include: { blocks: { orderBy: { position: "asc" } } },
+    include: {
+      blocks: { orderBy: { position: "asc" } },
+      unit: { include: { course: { select: { slug: true } } } },
+    },
   });
 
   if (!lesson) notFound();
@@ -34,6 +38,8 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
         completedAt: new Date(),
       },
     });
+    revalidatePath(`/app/courses/${lesson!.unit.course.slug}`);
+    revalidatePath(`/app/lessons/${lesson!.id}`);
   }
 
   return (
@@ -52,10 +58,20 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
 }
 
 function LessonBlock({ block }: { block: { title: string | null; content: string } }) {
+  const richHtml = looksLikeHtml(block.content);
+
   return (
     <section>
       {block.title ? <h2 className="font-semibold">{block.title}</h2> : null}
-      <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{block.content}</p>
+      {richHtml ? (
+        <div className="prose prose-stone mt-2 max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: block.content }} />
+      ) : (
+        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{block.content}</p>
+      )}
     </section>
   );
+}
+
+function looksLikeHtml(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
 }
