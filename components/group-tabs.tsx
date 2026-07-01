@@ -58,6 +58,7 @@ type ReviewAttempt = {
   vocabularyEntryId: string;
   displayForm: string;
   correct: boolean;
+  usedHint: boolean;
   createdAt: Date;
 };
 type SyncCount = {
@@ -413,14 +414,16 @@ export function GroupTabs({
             speechLocale={activeLanguage?.speechLocale ?? activeLanguage?.code}
             speechVoiceName={activeLanguage?.speechVoiceName}
             speechProvider={activeLanguage?.speechProvider}
+            reviewAttempts={activeAttempts}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
           />
-          <div className="animate-panel-in grid gap-4 sm:grid-cols-4">
+          <div className="animate-panel-in grid gap-4 sm:grid-cols-5">
             <Stat label="Days learned" value={new Set(activeAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size} />
             <Stat label="New words" value={new Set(activeAttempts.map((attempt) => attempt.vocabularyEntryId)).size} />
             <Stat label="Correct" value={activeAttempts.filter((attempt) => attempt.correct).length} />
             <Stat label="Missed" value={activeAttempts.filter((attempt) => !attempt.correct).length} />
+            <Stat label="Weak" value={new Set(activeAttempts.filter((attempt) => attempt.usedHint || !attempt.correct).map((attempt) => attempt.vocabularyEntryId)).size} />
           </div>
         </div>
       )}
