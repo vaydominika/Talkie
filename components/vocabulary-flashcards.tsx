@@ -67,6 +67,7 @@ export function VocabularyFlashcards({
   resetAttemptsAction?: AttemptAction;
 }) {
   const selectedWords = useMemo(() => words.filter((word) => selectedIds.has(word.id)), [words, selectedIds]);
+  const selectedWordKey = useMemo(() => selectedWords.map((word) => word.id).join("|"), [selectedWords]);
   const [direction, setDirection] = useState<Direction>("target-native");
   const [randomOrder, setRandomOrder] = useState(true);
   const [deck, setDeck] = useState<Card[]>([]);
@@ -88,7 +89,7 @@ export function VocabularyFlashcards({
   useEffect(() => {
     rebuild(direction, randomOrder);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWords]);
+  }, [selectedWordKey]);
 
   const card = deck[index % Math.max(deck.length, 1)];
   const prompt = card?.direction === "native-target" ? nativeAnswer(card.word) : card?.word.displayForm;
