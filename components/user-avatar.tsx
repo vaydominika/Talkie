@@ -1,9 +1,16 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const sizes = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
   lg: "h-16 w-16 text-xl",
+};
+
+const imageSizes = {
+  sm: 32,
+  md: 40,
+  lg: 64,
 };
 
 function initials(name?: string | null, email?: string | null) {
@@ -30,10 +37,12 @@ export function UserAvatar({
 }) {
   if (image) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={image}
         alt={name || email || "User avatar"}
+        width={imageSizes[size]}
+        height={imageSizes[size]}
+        unoptimized
         className={cn("rounded-full border object-cover", sizes[size], className)}
       />
     );

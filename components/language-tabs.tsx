@@ -7,6 +7,7 @@ import { JapaneseReview } from "@/components/japanese-review";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
+import { summarizeWeakWords } from "@/lib/vocabulary-review";
 
 type Word = {
   id: string;
@@ -24,6 +25,7 @@ type ReviewAttempt = {
   expected: string;
   answer: string;
   correct: boolean;
+  usedHint: boolean;
   createdAt: Date;
 };
 type Grammar = {
@@ -128,7 +130,9 @@ export function LanguageTabs({
   const correctCount = reviewAttempts.filter((attempt) => attempt.correct).length;
   const uniqueReviewed = new Set(reviewAttempts.map((attempt) => attempt.vocabularyEntryId)).size;
   const learnedDays = new Set(reviewAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size;
-  const missedAttempts = reviewAttempts.filter((attempt) => !attempt.correct);
+  const weakSummaries = summarizeWeakWords(reviewAttempts);
+  const activeWeak = weakSummaries.filter((summary) => !summary.cleared);
+  const weakAttempts = reviewAttempts.filter((attempt) => attempt.usedHint || !attempt.correct);
 
   useEffect(() => {
     const stored = localStorage.getItem("talkie-vocabulary-flashcards");
@@ -222,6 +226,7 @@ export function LanguageTabs({
             speechLocale={speechLocale ?? languageCode}
             speechVoiceName={speechVoiceName}
             speechProvider={speechProvider}
+            reviewAttempts={reviewAttempts}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
           />
@@ -289,16 +294,17 @@ export function LanguageTabs({
           <JapaneseReview reviewAttempts={reviewAttempts} />
         ) : (
           <div className="space-y-6">
-          <div className="animate-panel-in grid gap-4 sm:grid-cols-4">
+          <div className="animate-panel-in grid gap-4 sm:grid-cols-5">
             <Stat label="Days learned" value={learnedDays} />
             <Stat label="New words" value={uniqueReviewed} />
             <Stat label="Correct" value={correctCount} />
             <Stat label="Missed" value={reviewAttempts.length - correctCount} />
+            <Stat label="Weak" value={activeWeak.length} />
           </div>
-          {missedAttempts.length === 0 ? (
+          {weakAttempts.length === 0 ? (
             <section className="animate-panel-in rounded-lg border border-dashed p-8 text-center">
-              <h2 className="text-xl font-semibold">No missed answers yet.</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Wrong answers from flashcards will appear here.</p>
+              <h2 className="text-xl font-semibold">No weak answers yet.</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Hint-used and missed answers from flashcards will appear here.</p>
             </section>
           ) : (
             <div className="animate-panel-in overflow-x-auto rounded-lg border">
@@ -309,16 +315,22 @@ export function LanguageTabs({
                     <th className="p-3">Prompt</th>
                     <th className="p-3">Expected</th>
                     <th className="p-3">Your answer</th>
+                    <th className="p-3">Why weak</th>
                     <th className="p-3 text-right">Date</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {missedAttempts.map((attempt, index) => (
+                  {weakAttempts.map((attempt, index) => (
                     <tr key={attempt.id} className="animate-list-in border-t" style={{ animationDelay: `${index * 25}ms` }}>
                       <td className="p-3 font-medium">{attempt.displayForm}</td>
                       <td className="p-3">{attempt.prompt}</td>
                       <td className="p-3">{attempt.expected}</td>
-                      <td className="p-3 text-rose-700">{attempt.answer || "-"}</td>
+                      <td className={attempt.correct ? "p-3 text-muted-foreground" : "p-3 text-rose-700"}>{attempt.answer || "-"}</td>
+                      <td className="p-3">
+                        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${attempt.usedHint ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                          {attempt.usedHint && !attempt.correct ? "Missed + hint" : attempt.usedHint ? "Hint used" : "Missed"}
+                        </span>
+                      </td>
                       <td className="p-3 text-right text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
