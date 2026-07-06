@@ -97,6 +97,7 @@ export function VocabularyFlashcards({
     () => (studyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : selectedWords),
     [selectedWords, studyMode, weakWordIds],
   );
+  const deckRebuildKey = studyMode === "weak" ? `${selectedWordKey}|${weakWordKey}` : selectedWordKey;
 
   const rebuild = (nextDirection = direction, nextRandomOrder = randomOrder, nextStudyMode = studyMode) => {
     setDirection(nextDirection);
@@ -111,9 +112,10 @@ export function VocabularyFlashcards({
   };
 
   useEffect(() => {
+    if (status !== "idle") return;
     rebuild(direction, randomOrder, studyMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWordKey, studyMode, weakWordKey]);
+  }, [deckRebuildKey, studyMode]);
 
   const card = deck[index % Math.max(deck.length, 1)];
   const weakSummary = card ? weakSummaryByWordId.get(card.word.id) : undefined;
@@ -128,6 +130,20 @@ export function VocabularyFlashcards({
     setAnswer("");
     setStatus("idle");
     setRevealed(false);
+    if (studyMode === "weak" && card && status !== "idle") {
+      const shouldRepeat = status === "wrong" || revealed;
+      setDeck((currentDeck) => {
+        if (!currentDeck.length) return currentDeck;
+        const activeIndex = index % currentDeck.length;
+        const remaining = currentDeck.filter((_, cardIndex) => cardIndex !== activeIndex);
+        return shouldRepeat ? [...remaining, currentDeck[activeIndex]] : remaining;
+      });
+      setIndex((current) => {
+        if (deck.length <= 1) return 0;
+        return Math.min(current, deck.length - 2);
+      });
+      return;
+    }
     setIndex((current) => (deck.length ? (current + 1) % deck.length : 0));
   };
 
@@ -195,7 +211,7 @@ export function VocabularyFlashcards({
     );
   }
 
-  if (!practiceWords.length) {
+  if (!practiceWords.length && status === "idle") {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap justify-center gap-2">
