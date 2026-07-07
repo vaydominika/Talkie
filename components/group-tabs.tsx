@@ -88,6 +88,8 @@ export function GroupTabs({
   removeMemberAction,
   saveAttemptAction,
   resetAttemptsAction,
+  savePracticePreferenceAction,
+  initialSelectedIds,
 }: {
   groupId: string;
   words: Word[];
@@ -109,6 +111,8 @@ export function GroupTabs({
   removeMemberAction: RemoveMemberAction;
   saveAttemptAction: AttemptAction;
   resetAttemptsAction: AttemptAction;
+  savePracticePreferenceAction: AttemptAction;
+  initialSelectedIds: string[];
 }) {
   const [tab, setTab] = useState("vocabulary");
   const [tabReady, setTabReady] = useState(false);
@@ -161,24 +165,26 @@ export function GroupTabs({
   };
 
   useEffect(() => {
-    const stored = localStorage.getItem(`talkie-group-${groupId}-flashcards`);
-    const allWordIds = words.map((word) => word.id);
-    if (stored === null) {
-      localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify(allWordIds));
-      setSelected(new Set(allWordIds));
-    } else {
-      const storedIds = JSON.parse(stored) as string[];
-      const next = new Set([...storedIds, ...allWordIds.filter((id) => !storedIds.includes(id))]);
-      localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify([...next]));
-      setSelected(next);
-    }
-  }, [words, groupId]);
+    const allWordIds = new Set(words.map((word) => word.id));
+    const next = new Set(initialSelectedIds.filter((id) => allWordIds.has(id)));
+    localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify([...next]));
+    setSelected(next);
+  }, [words, groupId, initialSelectedIds]);
+
+  const savePracticePreference = (id: string, enabled: boolean) => {
+    const formData = new FormData();
+    formData.append("wordId", id);
+    formData.append("enabled", String(enabled));
+    savePracticePreferenceAction(formData);
+  };
 
   const toggleFlashcard = (id: string) => {
     setSelected((current) => {
       const next = new Set(current);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const enabled = !next.has(id);
+      enabled ? next.add(id) : next.delete(id);
       localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify([...next]));
+      savePracticePreference(id, enabled);
       return next;
     });
   };
@@ -189,6 +195,7 @@ export function GroupTabs({
       for (const id of ids) {
         if (checked) next.add(id);
         else next.delete(id);
+        savePracticePreference(id, checked);
       }
       localStorage.setItem(`talkie-group-${groupId}-flashcards`, JSON.stringify([...next]));
       return next;

@@ -88,6 +88,8 @@ export function LanguageTabs({
   reviewAttempts,
   saveAttemptAction,
   resetAttemptsAction,
+  savePracticePreferenceAction,
+  initialSelectedIds,
   importGroupVocabularyToProfileAction,
   importProfileVocabularyToGroupAction,
   strokeOrderImages = {},
@@ -109,6 +111,8 @@ export function LanguageTabs({
   reviewAttempts: ReviewAttempt[];
   saveAttemptAction: Action;
   resetAttemptsAction: Action;
+  savePracticePreferenceAction: Action;
+  initialSelectedIds: string[];
   importGroupVocabularyToProfileAction: SyncAction;
   importProfileVocabularyToGroupAction: SyncAction;
   strokeOrderImages?: Record<string, string>;
@@ -135,18 +139,11 @@ export function LanguageTabs({
   const weakAttempts = reviewAttempts.filter((attempt) => attempt.usedHint || !attempt.correct);
 
   useEffect(() => {
-    const stored = localStorage.getItem("talkie-vocabulary-flashcards");
-    const allWordIds = words.map((word) => word.id);
-    if (stored === null) {
-      localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify(allWordIds));
-      setSelected(new Set(allWordIds));
-      return;
-    }
-    const storedIds = JSON.parse(stored) as string[];
-    const next = new Set([...storedIds, ...allWordIds.filter((id) => !storedIds.includes(id))]);
+    const allWordIds = new Set(words.map((word) => word.id));
+    const next = new Set(initialSelectedIds.filter((id) => allWordIds.has(id)));
     localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
     setSelected(next);
-  }, [words]);
+  }, [initialSelectedIds, words]);
 
   useEffect(() => {
     const stored = localStorage.getItem(activeTabStorageKey);
@@ -172,11 +169,20 @@ export function LanguageTabs({
     localStorage.setItem(activeTabStorageKey, slug);
   };
 
+  const savePracticePreference = (id: string, enabled: boolean) => {
+    const formData = new FormData();
+    formData.append("wordId", id);
+    formData.append("enabled", String(enabled));
+    savePracticePreferenceAction(formData);
+  };
+
   const toggleFlashcard = (id: string) =>
     setSelected((current) => {
       const next = new Set(current);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const enabled = !next.has(id);
+      enabled ? next.add(id) : next.delete(id);
       localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
+      savePracticePreference(id, enabled);
       return next;
     });
 
@@ -186,6 +192,7 @@ export function LanguageTabs({
       for (const id of ids) {
         if (checked) next.add(id);
         else next.delete(id);
+        savePracticePreference(id, checked);
       }
       localStorage.setItem("talkie-vocabulary-flashcards", JSON.stringify([...next]));
       return next;

@@ -62,3 +62,39 @@ export async function resetVocabularyReviewAttempts(formData: FormData) {
   revalidatePath("/app/dashboard");
 }
 
+export async function saveVocabularyPracticePreference(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const vocabularyEntryId = String(formData.get("wordId") ?? "");
+  const enabled = formData.get("enabled") === "true";
+
+  if (!vocabularyEntryId) throw new Error("Missing word");
+
+  const word = await prisma.vocabularyEntry.findFirst({
+    where: {
+      id: vocabularyEntryId,
+      OR: [
+        { userId: session.user.id, groupId: null },
+        { group: { members: { some: { userId: session.user.id } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!word) throw new Error("Vocabulary word not found");
+
+  await prisma.vocabularyPracticePreference.upsert({
+    where: {
+      userId_vocabularyEntryId: {
+        userId: session.user.id,
+        vocabularyEntryId,
+      },
+    },
+    create: {
+      userId: session.user.id,
+      vocabularyEntryId,
+      enabled,
+    },
+    update: { enabled },
+  });
+}

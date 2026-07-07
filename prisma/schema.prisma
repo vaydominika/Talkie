@@ -50,6 +50,7 @@ model User {
  preferences UserPreference?
  lessonProgress LessonProgress[]
  reviewStates FlashcardReviewState[]
+ practicePreferences VocabularyPracticePreference[]
  vocabularyAttempts VocabularyReviewAttempt[]
  testAttempts LessonTestAttempt[]
  groupMemberships GroupMember[]
@@ -207,6 +208,7 @@ model VocabularyEntry {
   userId String?
   user User? @relation(fields:[userId],references:[id],onDelete:Cascade)
   reviewAttempts VocabularyReviewAttempt[]
+  practicePreferences VocabularyPracticePreference[]
 }
 model VocabularyTranslation {
  id String @id @default(cuid())
@@ -305,6 +307,19 @@ model VocabularyReviewAttempt {
 
   @@index([userId,languageId,createdAt])
   @@index([userId,groupId,createdAt])
+}
+
+model VocabularyPracticePreference {
+  id String @id @default(cuid())
+  userId String
+  vocabularyEntryId String
+  enabled Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  vocabularyEntry VocabularyEntry @relation(fields:[vocabularyEntryId],references:[id],onDelete:Cascade)
+
+  @@unique([userId,vocabularyEntryId])
+  @@index([userId,enabled])
 }
 
 enum GroupRole {

@@ -18,7 +18,7 @@ import {
   updateGroupMemberRole,
   updateGroupVocabulary,
 } from "../actions";
-import { resetVocabularyReviewAttempts, saveVocabularyReviewAttempt } from "../../review/actions";
+import { resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../../review/actions";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -102,7 +102,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const groupLanguageIds = group.languages.map((item) => item.languageId);
 
-  const [profileLanguages, profileVocabulary, reviewAttempts] = await Promise.all([
+  const [profileLanguages, profileVocabulary, reviewAttempts, practicePreferences] = await Promise.all([
     prisma.language.findMany({
       where: {
         users: {
@@ -130,9 +130,20 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
+    prisma.vocabularyPracticePreference.findMany({
+      where: {
+        userId: session.user.id,
+        vocabularyEntry: {
+          groupId: group.id,
+        },
+      },
+      select: { vocabularyEntryId: true, enabled: true },
+    }),
   ]);
 
   const personalKeys = new Set(profileVocabulary.map((word) => `${word.languageId}:${word.displayForm.toLowerCase().trim()}`));
+  const practicePreferenceMap = new Map(practicePreferences.map((preference) => [preference.vocabularyEntryId, preference.enabled]));
+  const initialSelectedIds = group.vocabulary.filter((word) => practicePreferenceMap.get(word.id) !== false).map((word) => word.id);
   const groupKeysByLanguage = new Map<string, Set<string>>();
   const personalKeysByLanguage = new Map<string, Set<string>>();
 
@@ -230,6 +241,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         removeMemberAction={removeGroupMember}
         saveAttemptAction={saveVocabularyReviewAttempt}
         resetAttemptsAction={resetVocabularyReviewAttempts}
+        savePracticePreferenceAction={saveVocabularyPracticePreference}
+        initialSelectedIds={initialSelectedIds}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import { LanguageTabs } from "@/components/language-tabs";
 import { matchesLanguageSlug } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 import { importGroupVocabularyToProfileAction, importProfileVocabularyToGroupAction } from "../groups/actions";
-import { resetVocabularyReviewAttempts, saveVocabularyReviewAttempt } from "../review/actions";
+import { resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../review/actions";
 import { addPersonalVocabulary, addPersonalVocabularyBulk, deletePersonalVocabulary, updatePersonalVocabulary } from "../vocabulary/actions";
 
 export default async function LanguagePage({ params }: { params: Promise<{ language: string }> }) {
@@ -26,7 +26,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
   if (!language) notFound();
   const currentLanguage = language;
 
-  const [words, grammar, media, groupMemberships, reviewAttempts] = await Promise.all([
+  const [words, grammar, media, groupMemberships, reviewAttempts, practicePreferences] = await Promise.all([
     prisma.vocabularyEntry.findMany({
       where: {
         languageId: currentLanguage.id,
@@ -75,10 +75,23 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
+    prisma.vocabularyPracticePreference.findMany({
+      where: {
+        userId: session.user.id,
+        vocabularyEntry: {
+          languageId: currentLanguage.id,
+          userId: session.user.id,
+          groupId: null,
+        },
+      },
+      select: { vocabularyEntryId: true, enabled: true },
+    }),
   ]);
 
   const strokeOrderImages = Object.fromEntries(media.map((asset) => [asset.targetKey!, asset.url]));
   const personalKeys = new Set(words.map((word) => word.displayForm.toLowerCase().trim()));
+  const practicePreferenceMap = new Map(practicePreferences.map((preference) => [preference.vocabularyEntryId, preference.enabled]));
+  const initialSelectedIds = words.filter((word) => practicePreferenceMap.get(word.id) !== false).map((word) => word.id);
   const groupSyncTargets = groupMemberships.map((membership) => ({
     id: membership.group.id,
     name: membership.group.name,
@@ -118,6 +131,8 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
           reviewAttempts={reviewAttempts}
           saveAttemptAction={saveVocabularyReviewAttempt}
           resetAttemptsAction={resetVocabularyReviewAttempts}
+          savePracticePreferenceAction={saveVocabularyPracticePreference}
+          initialSelectedIds={initialSelectedIds}
           importGroupVocabularyToProfileAction={importGroupVocabularyToProfileAction}
           importProfileVocabularyToGroupAction={importProfileVocabularyToGroupAction}
           strokeOrderImages={strokeOrderImages}
