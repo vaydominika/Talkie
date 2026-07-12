@@ -2,12 +2,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateDailyMinutes } from "../settings/actions";
+import { getStudyWeek } from "@/lib/study-week";
+import { StudyWeek } from "@/components/study-week";
 
 export default async function Dashboard() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const [profile, attempts, activeLanguages, activeGroups] = await Promise.all([
+  const [profile, attempts, activeLanguages, activeGroups, week] = await Promise.all([
     prisma.userProfile.findUnique({ where: { userId: session.user.id } }),
     prisma.vocabularyReviewAttempt.findMany({
       where: { userId: session.user.id },
@@ -17,6 +19,7 @@ export default async function Dashboard() {
     }),
     prisma.userLanguage.count({ where: { userId: session.user.id } }),
     prisma.groupMember.count({ where: { userId: session.user.id } }),
+    getStudyWeek(session.user.id),
   ]);
 
   const dayKeys = new Set(attempts.map((attempt) => attempt.createdAt.toDateString()));
@@ -55,6 +58,8 @@ export default async function Dashboard() {
           </CardHeader>
         </Card>
       </section>
+
+      <StudyWeek days={week} />
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>

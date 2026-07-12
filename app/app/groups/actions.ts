@@ -774,9 +774,10 @@ export async function removeGroupMember(formData: FormData) {
     throw new Error("The group owner cannot be removed.");
   }
 
-  await prisma.groupMember.delete({
-    where: { id: memberId },
-  });
+  await prisma.$transaction([
+    prisma.groupTimerParticipant.deleteMany({ where: { userId: member.userId, room: { groupId } } }),
+    prisma.groupMember.delete({ where: { id: memberId } }),
+  ]);
 
   revalidatePath(`/app/groups/${groupId}`);
 }

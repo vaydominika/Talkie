@@ -23,6 +23,23 @@ enum CardState {
  SUSPENDED
  BURIED
 }
+enum TimerPhase {
+ FOCUS
+ BREAK
+}
+enum TimerProposalKind {
+ START
+ PAUSE
+ RESET
+ SKIP
+ SETTINGS
+}
+enum TimerProposalStatus {
+ PENDING
+ APPROVED
+ DECLINED
+ EXPIRED
+}
 enum LanguageTabType {
  LEARNING
  FLASHCARDS
@@ -56,6 +73,11 @@ model User {
  groupMemberships GroupMember[]
  languages        UserLanguage[]
  vocabulary       VocabularyEntry[]
+ dailyStudyRecords DailyStudyRecord[]
+ personalTimer PersonalTimerState?
+ groupTimerParticipations GroupTimerParticipant[]
+ groupTimerProposals GroupTimerProposal[] @relation("TimerProposalAuthor")
+ groupTimerVotes GroupTimerVote[]
 }
 model Account {
  id String @id @default(cuid())
@@ -77,6 +99,41 @@ model UserProfile {
  id String @id @default(cuid())
  userId String @unique
  dailyMinutes Int @default(15)
+ timezone String @default("UTC")
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+}
+
+model DailyStudyRecord {
+ id String @id @default(cuid())
+ userId String
+ dateKey String
+ timezone String
+ focusedSeconds Int @default(0)
+ targetMinutes Int
+ carryOverMinutes Int @default(0)
+ carryPromptResponse String?
+ completionShown Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@unique([userId,dateKey])
+ @@index([userId,dateKey])
+}
+
+model PersonalTimerState {
+ id String @id @default(cuid())
+ userId String @unique
+ focusMinutes Int @default(25)
+ breakMinutes Int @default(5)
+ autoStart Boolean @default(false)
+ phase TimerPhase @default(FOCUS)
+ isRunning Boolean @default(false)
+ remainingSeconds Int @default(1500)
+ phaseStartedAt DateTime?
+ endsAt DateTime?
+ creditedUntil DateTime?
+ version Int @default(0)
+ updatedAt DateTime @updatedAt
  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
 }
 model UserPreference {
@@ -339,6 +396,67 @@ model Group {
   vocabulary         VocabularyEntry[]
   languages          GroupLanguage[]
   vocabularyAttempts VocabularyReviewAttempt[]
+  timerRoom GroupTimerRoom?
+}
+
+model GroupTimerRoom {
+ id String @id @default(cuid())
+ groupId String @unique
+ focusMinutes Int @default(25)
+ breakMinutes Int @default(5)
+ autoStart Boolean @default(false)
+ phase TimerPhase @default(FOCUS)
+ isRunning Boolean @default(false)
+ remainingSeconds Int @default(1500)
+ phaseStartedAt DateTime?
+ endsAt DateTime?
+ version Int @default(0)
+ updatedAt DateTime @updatedAt
+ group Group @relation(fields:[groupId],references:[id],onDelete:Cascade)
+ participants GroupTimerParticipant[]
+ proposals GroupTimerProposal[]
+}
+
+model GroupTimerParticipant {
+ id String @id @default(cuid())
+ roomId String
+ userId String
+ joinedAt DateTime @default(now())
+ lastSeenAt DateTime @default(now())
+ creditedUntil DateTime?
+ room GroupTimerRoom @relation(fields:[roomId],references:[id],onDelete:Cascade)
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@unique([roomId,userId])
+ @@index([userId,lastSeenAt])
+}
+
+model GroupTimerProposal {
+ id String @id @default(cuid())
+ roomId String
+ proposerId String
+ kind TimerProposalKind
+ payload Json?
+ requiredUserIds Json
+ status TimerProposalStatus @default(PENDING)
+ baseVersion Int
+ expiresAt DateTime
+ createdAt DateTime @default(now())
+ resolvedAt DateTime?
+ room GroupTimerRoom @relation(fields:[roomId],references:[id],onDelete:Cascade)
+ proposer User @relation("TimerProposalAuthor",fields:[proposerId],references:[id],onDelete:Cascade)
+ votes GroupTimerVote[]
+ @@index([roomId,status,expiresAt])
+}
+
+model GroupTimerVote {
+ id String @id @default(cuid())
+ proposalId String
+ userId String
+ approved Boolean
+ createdAt DateTime @default(now())
+ proposal GroupTimerProposal @relation(fields:[proposalId],references:[id],onDelete:Cascade)
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ @@unique([proposalId,userId])
 }
 
 model GroupMember {

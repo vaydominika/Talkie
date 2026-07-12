@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { GroupTabs } from "@/components/group-tabs";
+import { GroupTimerJoin } from "@/components/group-timer-join";
 import {
   addGroupLanguage,
   addGroupVocabularyBulk,
@@ -190,6 +191,10 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
             <p className="text-[10px] text-muted-foreground mt-1">Share this code with others to invite them</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <GroupTimerJoin groupId={group.id} groupName={group.name} />
       </div>
 
       {isOwner && (

@@ -7,6 +7,7 @@ import { SidebarLink } from "@/components/sidebar-link";
 import { UserAvatar } from "@/components/user-avatar";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
+import { TimerProvider, TimerTrigger } from "@/components/timer-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -28,16 +29,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       select: { code: true, name: true, nativeName: true },
     }),
   ]);
+  // A database restore can replace user IDs while an old JWT is still active.
+  if (!user) redirect("/sign-in");
 
   async function leave() {
     "use server";
     await signOut({ redirectTo: "/" });
   }
 
-  const displayName = user?.name || user?.email || session.user.email;
-  const isAdmin = session.user.role === "ADMIN" || user?.role === "ADMIN";
+  const displayName = user.name || user.email || session.user.email;
+  const isAdmin = session.user.role === "ADMIN" || user.role === "ADMIN";
 
   return (
+    <TimerProvider userId={session.user.id}>
     <div className="relative min-h-screen md:pl-56">
       <aside className="fixed inset-y-0 left-0 hidden h-screen w-56 flex-col border-r bg-background p-4 md:flex">
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -93,10 +97,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <div className="shrink-0 border-t pt-4">
           <div className="mb-3 flex items-center gap-3 px-3">
-            <UserAvatar name={user?.name} email={user?.email} image={user?.image} size="sm" />
+            <UserAvatar name={user.name} email={user.email} image={user.image} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{displayName}</p>
-              {user?.name && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+              {user.name && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
             </div>
           </div>
           <SidebarLink href="/app/settings">
@@ -181,10 +185,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Talkie
             </Link>
           </div>
-          <span className="ml-auto text-sm text-muted-foreground">{displayName}</span>
+          <div className="ml-auto flex items-center gap-3">
+            <TimerTrigger />
+            <span className="text-sm text-muted-foreground">{displayName}</span>
+          </div>
         </header>
         <main className="animate-page-in mx-auto max-w-6xl p-4 sm:p-6">{children}</main>
       </div>
     </div>
+    </TimerProvider>
   );
 }

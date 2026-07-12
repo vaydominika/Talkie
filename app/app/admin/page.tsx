@@ -75,7 +75,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
               Download a JSON backup with users, languages, vocabulary, groups, review history, and preferences.
             </p>
             <Button asChild className="mt-4">
-              <a href="/app/admin/db/export">Download JSON export</a>
+              <Link href={"/app/admin/db/export" as Route}>Download JSON export</Link>
             </Button>
           </div>
 

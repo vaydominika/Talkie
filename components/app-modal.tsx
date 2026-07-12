@@ -34,7 +34,7 @@ export function AppModal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[160] grid place-items-center bg-black/45 p-4 backdrop-blur-[1px]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

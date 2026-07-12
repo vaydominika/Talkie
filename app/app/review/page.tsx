@@ -2,12 +2,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatWeekLabel, getWeekKey, isWeakAttempt, summarizeWeakWords } from "@/lib/vocabulary-review";
+import { getStudyWeek } from "@/lib/study-week";
+import { StudyWeek } from "@/components/study-week";
 
 export default async function ReviewPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const attempts = await prisma.vocabularyReviewAttempt.findMany({
+  const [attempts, studyWeek] = await Promise.all([prisma.vocabularyReviewAttempt.findMany({
     where: { userId: session.user.id },
     include: {
       language: { select: { name: true } },
@@ -15,7 +17,7 @@ export default async function ReviewPage() {
     },
     orderBy: { createdAt: "desc" },
     take: 1000,
-  });
+  }), getStudyWeek(session.user.id)]);
 
   const days = new Set(attempts.map((attempt) => attempt.createdAt.toDateString()));
   const words = new Set(attempts.map((attempt) => attempt.vocabularyEntryId));
@@ -100,6 +102,8 @@ export default async function ReviewPage() {
         <Metric label="Missed" value={missed} />
         <Metric label="Weak" value={activeWeakCount} />
       </section>
+
+      <StudyWeek days={studyWeek} />
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
