@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createLanguage, ensureAdmin, importDatabaseBackup, updateLanguage } from "./actions";
 import { Check, Field, Panel, Stat } from "./ui";
 
-export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ dbImport?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ dbImport?: string; dbImportError?: string }> }) {
   await ensureAdmin();
   const resolvedSearchParams = await searchParams;
   const [languages, templateVocabularyCounts] = await Promise.all([
@@ -93,7 +93,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
             )}
             {resolvedSearchParams?.dbImport === "failed" && (
               <p className="rounded-md border border-rose-200 bg-rose-100 p-3 text-sm text-rose-900">
-                Database import failed. The destination data was left unchanged; check the deployment logs for the cause.
+                Database import failed. The destination data was left unchanged. {resolvedSearchParams.dbImportError}
               </p>
             )}
             <label className="block text-sm font-medium">

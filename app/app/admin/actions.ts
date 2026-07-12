@@ -11,6 +11,13 @@ import { prisma } from "@/lib/prisma";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 
+const importErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message.replace(/\s+/g, " ").trim().slice(0, 600);
+  }
+  return "The database rejected the import. Check the deployment logs for details.";
+};
+
 const integer = (formData: FormData, key: string, fallback = 0) => {
   const value = Number.parseInt(String(formData.get(key) ?? ""), 10);
   return Number.isFinite(value) ? value : fallback;
@@ -96,7 +103,8 @@ export async function importDatabaseBackup(formData: FormData) {
     await importDatabaseExport(prisma, data);
   } catch (error) {
     console.error("Database import failed", error);
-    redirect("/app/admin?dbImport=failed");
+    const params = new URLSearchParams({ dbImport: "failed", dbImportError: importErrorMessage(error) });
+    redirect(`/app/admin?${params}`);
   }
 
   revalidatePath("/app");
