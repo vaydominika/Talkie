@@ -1,4 +1,6 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const sizes = {
@@ -14,7 +16,8 @@ const imageSizes = {
 };
 
 function initials(name?: string | null, email?: string | null) {
-  const source = name?.trim() || email?.split("@")[0] || "?";
+  const cleanedName = name?.trim();
+  const source = cleanedName && cleanedName !== "?" ? cleanedName : email?.split("@")[0] || "?";
   return source
     .split(/\s+/)
     .slice(0, 2)
@@ -35,15 +38,21 @@ export function UserAvatar({
   size?: keyof typeof sizes;
   className?: string;
 }) {
-  if (image) {
+  const [imageSource, setImageSource] = useState(image);
+
+  useEffect(() => {
+    setImageSource(image);
+  }, [image]);
+
+  if (imageSource) {
     return (
-      <Image
-        src={image}
+      <img
+        src={imageSource}
         alt={name || email || "User avatar"}
         width={imageSizes[size]}
         height={imageSizes[size]}
-        unoptimized
         className={cn("rounded-full border object-cover", sizes[size], className)}
+        onError={() => setImageSource(null)}
       />
     );
   }
