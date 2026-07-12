@@ -9,6 +9,7 @@ type Timer = {
   id: string;
   phase: "FOCUS" | "BREAK";
   isRunning: boolean;
+  endsAt: string | null;
   remainingSeconds: number;
   focusMinutes: number;
   breakMinutes: number;
@@ -58,9 +59,11 @@ export function TimerProvider({ children, userId }: { children: React.ReactNode;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
+  const [serverClockOffset, setServerClockOffset] = useState(0);
   const previousPhase = useRef<string | null>(null);
 
   const request = useCallback(async (body: Record<string, unknown> = {}) => {
+    const sentAt = Date.now();
     const response = await fetch("/api/timer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,6 +71,9 @@ export function TimerProvider({ children, userId }: { children: React.ReactNode;
     });
     const value = await response.json();
     if (!response.ok) throw new Error(value.error || "Timer request failed.");
+    const receivedAt = Date.now();
+    setServerClockOffset(new Date(value.serverNow).getTime() - Math.round((sentAt + receivedAt) / 2));
+    setTick(receivedAt);
     setSnapshot(value);
     return value as TimerSnapshot;
   }, []);
@@ -89,16 +95,18 @@ export function TimerProvider({ children, userId }: { children: React.ReactNode;
     request().catch((cause) => setError(cause instanceof Error ? cause.message : "Timer could not load."));
   }, [request, userId]);
 
-  useEffect(() => {
-    const active = Boolean(snapshot?.personal.isRunning || snapshot?.group || snapshot?.proposal);
-    const interval = window.setInterval(() => {
-      request(snapshot?.group ? { action: "heartbeat" } : {}).catch(() => undefined);
-    }, active ? 2_000 : 15_000);
-    return () => window.clearInterval(interval);
-  }, [request, snapshot?.group, snapshot?.personal.isRunning, snapshot?.proposal]);
+  const hasGroupTimer = Boolean(snapshot?.group);
+  const needsFastPolling = Boolean(snapshot?.personal.isRunning || hasGroupTimer || snapshot?.proposal);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setTick(Date.now()), 1_000);
+    const interval = window.setInterval(() => {
+      request(hasGroupTimer ? { action: "heartbeat" } : {}).catch(() => undefined);
+    }, needsFastPolling ? 2_000 : 15_000);
+    return () => window.clearInterval(interval);
+  }, [hasGroupTimer, needsFastPolling, request]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setTick(Date.now()), 250);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -106,9 +114,9 @@ export function TimerProvider({ children, userId }: { children: React.ReactNode;
   const remaining = useMemo(() => {
     if (!snapshot || !activeTimer) return 0;
     if (!activeTimer.isRunning) return activeTimer.remainingSeconds;
-    const elapsed = Math.max(0, Math.floor((tick - new Date(snapshot.serverNow).getTime()) / 1_000));
-    return Math.max(0, activeTimer.remainingSeconds - elapsed);
-  }, [activeTimer, snapshot, tick]);
+    if (!activeTimer.endsAt) return activeTimer.remainingSeconds;
+    return Math.max(0, Math.ceil((new Date(activeTimer.endsAt).getTime() - (tick + serverClockOffset)) / 1_000));
+  }, [activeTimer, serverClockOffset, snapshot, tick]);
 
   useEffect(() => {
     if (!activeTimer?.isRunning) {
