@@ -45,6 +45,7 @@ const JSON_COLUMNS = new Set([
   "MediaAsset.metadata",
   "VocabularyEntry.sourceMetadata",
   "GrammarPoint.richContent",
+  "GrammarPoint.sourceMetadata",
   "LessonTestQuestion.answer",
   "LessonTestQuestion.options",
   "LessonTestAttempt.answers",
