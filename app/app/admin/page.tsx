@@ -91,6 +91,11 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
                 Database import completed.
               </p>
             )}
+            {resolvedSearchParams?.dbImport === "failed" && (
+              <p className="rounded-md border border-rose-200 bg-rose-100 p-3 text-sm text-rose-900">
+                Database import failed. The destination data was left unchanged; check the deployment logs for the cause.
+              </p>
+            )}
             <label className="block text-sm font-medium">
               Export JSON
               <input

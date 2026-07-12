@@ -91,8 +91,13 @@ export async function importDatabaseBackup(formData: FormData) {
   const file = formData.get("backup");
   if (!(file instanceof File) || file.size === 0) throw new Error("Choose a database export JSON file.");
 
-  const data = parseDatabaseExport(await file.text());
-  await importDatabaseExport(prisma, data);
+  try {
+    const data = parseDatabaseExport(await file.text());
+    await importDatabaseExport(prisma, data);
+  } catch (error) {
+    console.error("Database import failed", error);
+    redirect("/app/admin?dbImport=failed");
+  }
 
   revalidatePath("/app");
   revalidatePath("/app/admin");
