@@ -196,17 +196,21 @@ function FloatingTimer({ snapshot, remaining, mutate, busy, error, onClose }: { 
     >
       <div
         className={`flex cursor-move touch-none items-center justify-between rounded-t-2xl border-b px-4 py-3 ${group ? "bg-indigo-50/80 dark:bg-indigo-950/60" : "bg-rose-50/80 dark:bg-rose-950/50"}`}
-        onPointerDown={(event) => { if (window.innerWidth < 768) return; drag.current = { x: event.clientX, y: event.clientY, left: position.x, top: position.y }; event.currentTarget.setPointerCapture(event.pointerId); }}
+        onPointerDown={(event) => {
+          if (window.innerWidth < 768 || (event.target instanceof Element && event.target.closest("button, input, label, select, textarea, a"))) return;
+          drag.current = { x: event.clientX, y: event.clientY, left: position.x, top: position.y };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
         onPointerMove={(event) => { if (!drag.current) return; const next = { x: Math.max(-window.innerWidth + 380, Math.min(0, drag.current.left + event.clientX - drag.current.x)), y: Math.max(-window.innerHeight + 180, Math.min(0, drag.current.top + event.clientY - drag.current.y)) }; setPosition(next); }}
-        onPointerUp={(event) => { drag.current = null; localStorage.setItem("talkie-timer-position", JSON.stringify(position)); event.currentTarget.releasePointerCapture(event.pointerId); }}
+        onPointerUp={(event) => { drag.current = null; localStorage.setItem("talkie-timer-position", JSON.stringify(position)); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
       >
         <div className="flex min-w-0 items-center gap-2">
           {group ? <Users className="h-4 w-4 text-indigo-600" /> : <Clock3 className="h-4 w-4 text-rose-600" />}
           <div className="min-w-0"><p className="truncate text-sm font-semibold">{group ? group.group.name : "My focus"}</p><p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{timer.phase === "FOCUS" ? "Focus" : "Break"}</p></div>
         </div>
         <div className="flex gap-1">
-          <button type="button" onClick={() => setSettings(!settings)} className="rounded-md p-1.5 text-muted-foreground hover:bg-background" aria-label="Timer settings"><Settings2 className="h-4 w-4" /></button>
-          <button type="button" onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-background" aria-label="Close timer"><X className="h-4 w-4" /></button>
+          <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setSettings((visible) => !visible)} className="rounded-md p-1.5 text-muted-foreground hover:bg-background" aria-label="Timer settings" aria-expanded={settings}><Settings2 className="h-4 w-4" /></button>
+          <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-background" aria-label="Close timer"><X className="h-4 w-4" /></button>
         </div>
       </div>
       <div className="p-5">
