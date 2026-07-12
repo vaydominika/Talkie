@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/admin";
+import { importDatabaseExport, parseDatabaseExport } from "@/lib/db-transfer";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 
@@ -79,6 +80,23 @@ export async function updateLanguage(formData: FormData) {
     },
   });
   await refreshLanguage(language.id);
+}
+
+export async function importDatabaseBackup(formData: FormData) {
+  await ensureAdmin();
+
+  const confirmation = text(formData, "confirmation");
+  if (confirmation !== "IMPORT") throw new Error('Type "IMPORT" to confirm the database import.');
+
+  const file = formData.get("backup");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Choose a database export JSON file.");
+
+  const data = parseDatabaseExport(await file.text());
+  await importDatabaseExport(prisma, data);
+
+  revalidatePath("/app");
+  revalidatePath("/app/admin");
+  redirect("/app/admin?dbImport=complete");
 }
 
 export async function createTab(formData: FormData) {

@@ -3,11 +3,12 @@ import type { Route } from "next";
 import { Button } from "@/components/ui/button";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
-import { createLanguage, ensureAdmin, updateLanguage } from "./actions";
+import { createLanguage, ensureAdmin, importDatabaseBackup, updateLanguage } from "./actions";
 import { Check, Field, Panel, Stat } from "./ui";
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ dbImport?: string }> }) {
   await ensureAdmin();
+  const resolvedSearchParams = await searchParams;
   const [languages, templateVocabularyCounts] = await Promise.all([
     prisma.language.findMany({
       orderBy: [{ sidebarPosition: "asc" }, { name: "asc" }],
@@ -64,6 +65,46 @@ export default async function AdminPage() {
             <Button>Add language and open studio</Button>
           </div>
         </form>
+      </Panel>
+
+      <Panel eyebrow="Database" title="Export or import data">
+        <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="rounded-2xl bg-muted/40 p-4">
+            <h3 className="text-sm font-semibold">Export current database</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Download a JSON backup with users, languages, vocabulary, groups, review history, and preferences.
+            </p>
+            <Button asChild className="mt-4">
+              <a href="/app/admin/db/export">Download JSON export</a>
+            </Button>
+          </div>
+
+          <form action={importDatabaseBackup} className="grid gap-3 rounded-2xl border border-rose-100 bg-rose-50/40 p-4 dark:border-rose-950 dark:bg-rose-950/10">
+            <div>
+              <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Import database export</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This clears the destination database tables first, then loads the uploaded export.
+              </p>
+            </div>
+            {resolvedSearchParams?.dbImport === "complete" && (
+              <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                Database import completed.
+              </p>
+            )}
+            <label className="block text-sm font-medium">
+              Export JSON
+              <input
+                name="backup"
+                type="file"
+                accept="application/json,.json"
+                required
+                className="mt-1 block w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium"
+              />
+            </label>
+            <Field label='Type "IMPORT" to confirm' name="confirmation" placeholder="IMPORT" required />
+            <Button className="bg-rose-700 text-white hover:bg-rose-800">Import and replace data</Button>
+          </form>
+        </div>
       </Panel>
 
       <section className="grid gap-6 xl:grid-cols-2">
