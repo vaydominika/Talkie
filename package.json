@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
+    "@floating-ui/dom": "^1.0.0",
     "@prisma/client": "^6.8.2",
     "@radix-ui/react-slot": "^1.2.3",
     "@tiptap/extension-image": "^3.27.1",
