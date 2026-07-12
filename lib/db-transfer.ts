@@ -51,13 +51,29 @@ const JSON_COLUMNS = new Set([
   "LessonTestAttempt.answers",
 ]);
 
+const ENUM_COLUMNS = new Map<string, string>([
+  ["User.role", "Role"],
+  ["LanguageTab.type", "LanguageTabType"],
+  ["LanguageTab.status", "ContentStatus"],
+  ["Course.status", "ContentStatus"],
+  ["GrammarPoint.status", "ContentStatus"],
+  ["LessonTest.status", "ContentStatus"],
+  ["LessonTestQuestion.type", "TestQuestionType"],
+  ["FlashcardReviewState.state", "CardState"],
+  ["GroupMember.role", "GroupRole"],
+]);
+
 function quoteIdentifier(identifier: string) {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 
 function placeholderFor(table: DatabaseTransferTable, column: string, index: number) {
   const placeholder = `$${index}`;
-  return JSON_COLUMNS.has(`${table}.${column}`) ? `${placeholder}::jsonb` : placeholder;
+  const field = `${table}.${column}`;
+  if (JSON_COLUMNS.has(field)) return `${placeholder}::jsonb`;
+
+  const enumType = ENUM_COLUMNS.get(field);
+  return enumType ? `${placeholder}::${quoteIdentifier(enumType)}` : placeholder;
 }
 
 function valueFor(table: DatabaseTransferTable, column: string, value: unknown) {
