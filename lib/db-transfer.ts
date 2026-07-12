@@ -63,6 +63,20 @@ const ENUM_COLUMNS = new Map<string, string>([
   ["GroupMember.role", "GroupRole"],
 ]);
 
+const TIMESTAMP_COLUMNS = new Set([
+  "User.emailVerified",
+  "MediaAsset.createdAt",
+  "LessonProgress.completedAt",
+  "LessonTestAttempt.createdAt",
+  "FlashcardReviewState.dueAt",
+  "VocabularyReviewAttempt.createdAt",
+  "VocabularyPracticePreference.updatedAt",
+  "Group.createdAt",
+  "GroupMember.joinedAt",
+  "GroupLanguage.addedAt",
+  "UserLanguage.joinedAt",
+]);
+
 function quoteIdentifier(identifier: string) {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
@@ -73,7 +87,8 @@ function placeholderFor(table: DatabaseTransferTable, column: string, index: num
   if (JSON_COLUMNS.has(field)) return `${placeholder}::jsonb`;
 
   const enumType = ENUM_COLUMNS.get(field);
-  return enumType ? `${placeholder}::${quoteIdentifier(enumType)}` : placeholder;
+  if (enumType) return `${placeholder}::${quoteIdentifier(enumType)}`;
+  return TIMESTAMP_COLUMNS.has(field) ? `${placeholder}::timestamp` : placeholder;
 }
 
 function valueFor(table: DatabaseTransferTable, column: string, value: unknown) {
