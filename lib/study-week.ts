@@ -8,6 +8,8 @@ export type StudyDay = {
   focusedSeconds: number;
   wordCount: number;
   targetMinutes: number;
+  focusSessions: number;
+  isToday: boolean;
 };
 
 export async function getStudyWeek(userId: string, now = new Date()): Promise<StudyDay[]> {
@@ -41,6 +43,6 @@ export async function getStudyWeek(userId: string, now = new Date()): Promise<St
     const focusedSeconds = record?.focusedSeconds ?? 0;
     const targetMinutes = (record?.targetMinutes ?? profile?.dailyMinutes ?? 15) + (record?.carryOverMinutes ?? 0);
     const status = key > todayKey ? "future" : focusedSeconds >= targetMinutes * 60 ? "complete" : focusedSeconds > 0 ? "partial" : "empty";
-    return { dateKey: key, label: labels[index], status, focusedSeconds, targetMinutes, wordCount: wordsByKey.get(key)?.size ?? 0 };
+    return { dateKey: key, label: labels[index], status, focusedSeconds, targetMinutes, focusSessions: record?.focusSessions ?? 0, wordCount: wordsByKey.get(key)?.size ?? 0, isToday: key === todayKey };
   });
 }

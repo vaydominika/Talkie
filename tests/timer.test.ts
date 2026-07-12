@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateKey, displayedRemaining, oppositePhase, safeTimezone, secondsForPhase, shiftDateKey } from "@/lib/timer";
+import { dateKey, displayedRemaining, oppositePhase, safeTimezone, secondsForPhase, shiftDateKey, wholeSecondEnd } from "@/lib/timer";
 
 describe("timer helpers", () => {
   it("calculates durations and phase transitions", () => {
@@ -22,5 +22,13 @@ describe("timer helpers", () => {
 
   it("falls back for invalid timezones", () => {
     expect(safeTimezone("not/a-zone")).toBe("UTC");
+  });
+
+  it("carries fractional reconciliation time into the next credit", () => {
+    const start = new Date("2026-07-12T10:00:00.250Z");
+    const firstEnd = wholeSecondEnd(start, new Date("2026-07-12T10:00:02.700Z"));
+    const secondEnd = wholeSecondEnd(firstEnd, new Date("2026-07-12T10:00:04.800Z"));
+    expect(firstEnd.toISOString()).toBe("2026-07-12T10:00:02.250Z");
+    expect(secondEnd.toISOString()).toBe("2026-07-12T10:00:04.250Z");
   });
 });

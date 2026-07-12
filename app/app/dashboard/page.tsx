@@ -25,6 +25,7 @@ export default async function Dashboard() {
   const dayKeys = new Set(attempts.map((attempt) => attempt.createdAt.toDateString()));
   const practicedWords = new Set(attempts.map((attempt) => attempt.vocabularyEntryId));
   const correct = attempts.filter((attempt) => attempt.correct).length;
+  const today = week.find((day) => day.isToday);
 
   return (
     <div className="space-y-8">
@@ -55,6 +56,9 @@ export default async function Dashboard() {
               <span className="text-sm text-muted-foreground">min</span>
               <button className="ml-auto rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700">Save</button>
             </form>
+            <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+              Today: {Math.floor((today?.focusedSeconds ?? 0) / 60)} focused minutes · {today?.focusSessions ?? 0} focus {(today?.focusSessions ?? 0) === 1 ? "session" : "sessions"}
+            </p>
           </CardHeader>
         </Card>
       </section>

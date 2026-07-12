@@ -44,6 +44,11 @@ export function displayedRemaining(timer: Pick<PersonalTimerState | GroupTimerRo
   return Math.max(0, Math.ceil((timer.endsAt.getTime() - now.getTime()) / 1000));
 }
 
+export function wholeSecondEnd(start: Date, end: Date) {
+  const wholeSeconds = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1_000));
+  return new Date(start.getTime() + wholeSeconds * 1_000);
+}
+
 async function profileFor(userId: string, timezone: string) {
   return prisma.userProfile.upsert({
     where: { userId },
@@ -67,6 +72,15 @@ async function addSeconds(userId: string, key: string, timezone: string, seconds
   await prisma.dailyStudyRecord.update({
     where: { userId_dateKey: { userId, dateKey: key } },
     data: { focusedSeconds: { increment: seconds } },
+  });
+}
+
+export async function incrementFocusSession(userId: string, at: Date, timezone: string) {
+  const key = dateKey(at, timezone);
+  await ensureDailyRecord(userId, key, timezone);
+  await prisma.dailyStudyRecord.update({
+    where: { userId_dateKey: { userId, dateKey: key } },
+    data: { focusSessions: { increment: 1 } },
   });
 }
 
@@ -107,9 +121,10 @@ export async function reconcilePersonal(userId: string, timezone: string, now = 
     const intervalEnd = timer.endsAt < now ? timer.endsAt : now;
     if (timer.phase === "FOCUS" && timer.phaseStartedAt) {
       const start = timer.creditedUntil && timer.creditedUntil > timer.phaseStartedAt ? timer.creditedUntil : timer.phaseStartedAt;
-      if (intervalEnd > start) {
-        const claim = await prisma.personalTimerState.updateMany({ where: { id: timer.id, creditedUntil: timer.creditedUntil }, data: { creditedUntil: intervalEnd } });
-        if (claim.count) await creditRange(userId, start, intervalEnd, timezone);
+      const creditEnd = wholeSecondEnd(start, intervalEnd);
+      if (creditEnd > start) {
+        const claim = await prisma.personalTimerState.updateMany({ where: { id: timer.id, creditedUntil: timer.creditedUntil }, data: { creditedUntil: creditEnd } });
+        if (claim.count) await creditRange(userId, start, creditEnd, timezone);
       }
     }
     if (now < timer.endsAt) {
@@ -119,11 +134,13 @@ export async function reconcilePersonal(userId: string, timezone: string, now = 
     const nextPhase = oppositePhase(timer.phase);
     const nextSeconds = secondsForPhase(nextPhase, timer.focusMinutes, timer.breakMinutes);
     const nextStart = now;
+    const nextFocusSessionId = nextPhase === "FOCUS" && timer.autoStart ? crypto.randomUUID() : null;
+    if (nextFocusSessionId) await incrementFocusSession(userId, nextStart, timezone);
     timer = await prisma.personalTimerState.update({
       where: { id: timer.id },
       data: timer.autoStart
-        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, creditedUntil: nextStart, version: { increment: 1 } }
-        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, creditedUntil: null, version: { increment: 1 } },
+        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, creditedUntil: nextStart, focusSessionId: nextFocusSessionId, version: { increment: 1 } }
+        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, creditedUntil: null, focusSessionId: null, version: { increment: 1 } },
     });
   }
   return timer;
@@ -138,9 +155,18 @@ export async function reconcileRoom(roomId: string, now = new Date()) {
       for (const participant of room.participants) {
         const activeEnd = new Date(Math.min(intervalEnd.getTime(), participant.lastSeenAt.getTime() + ACTIVE_WINDOW_MS));
         const start = participant.creditedUntil && participant.creditedUntil > room.phaseStartedAt ? participant.creditedUntil : room.phaseStartedAt;
-        if (activeEnd > start) {
-          const claim = await prisma.groupTimerParticipant.updateMany({ where: { id: participant.id, creditedUntil: participant.creditedUntil }, data: { creditedUntil: activeEnd } });
-          if (claim.count) await creditRange(participant.userId, start, activeEnd, safeTimezone(participant.user.profile?.timezone));
+        const creditEnd = wholeSecondEnd(start, activeEnd);
+        if (creditEnd > start) {
+          const isNewSession = Boolean(room.focusSessionId && participant.lastCountedFocusSessionId !== room.focusSessionId);
+          const claim = await prisma.groupTimerParticipant.updateMany({
+            where: { id: participant.id, creditedUntil: participant.creditedUntil },
+            data: { creditedUntil: creditEnd, ...(isNewSession ? { lastCountedFocusSessionId: room.focusSessionId } : {}) },
+          });
+          if (claim.count) {
+            const timezone = safeTimezone(participant.user.profile?.timezone);
+            await creditRange(participant.userId, start, creditEnd, timezone);
+            if (isNewSession) await incrementFocusSession(participant.userId, start, timezone);
+          }
         }
       }
     }
@@ -148,12 +174,13 @@ export async function reconcileRoom(roomId: string, now = new Date()) {
     const nextPhase = oppositePhase(room.phase);
     const nextSeconds = secondsForPhase(nextPhase, room.focusMinutes, room.breakMinutes);
     const nextStart = now;
+    const nextFocusSessionId = nextPhase === "FOCUS" && room.autoStart ? crypto.randomUUID() : null;
     await prisma.groupTimerParticipant.updateMany({ where: { roomId }, data: { creditedUntil: nextStart } });
     await prisma.groupTimerRoom.update({
       where: { id: room.id },
       data: room.autoStart
-        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, version: { increment: 1 } }
-        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, version: { increment: 1 } },
+        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, focusSessionId: nextFocusSessionId, version: { increment: 1 } }
+        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, focusSessionId: null, version: { increment: 1 } },
     });
     room = await prisma.groupTimerRoom.findUnique({ where: { id: roomId }, include: { participants: { include: { user: { include: { profile: true } } } } } });
   }
@@ -165,25 +192,27 @@ export async function applyRoomAction(roomId: string, kind: TimerProposalKind, p
   const room = await prisma.groupTimerRoom.findUniqueOrThrow({ where: { id: roomId } });
   if (kind === "START") {
     const seconds = displayedRemaining(room, now) || secondsForPhase(room.phase, room.focusMinutes, room.breakMinutes);
+    const focusSessionId = room.phase === "FOCUS" ? room.focusSessionId ?? crypto.randomUUID() : null;
     await prisma.groupTimerParticipant.updateMany({ where: { roomId }, data: { creditedUntil: now } });
-    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { isRunning: true, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), remainingSeconds: seconds, version: { increment: 1 } } });
+    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { isRunning: true, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), remainingSeconds: seconds, focusSessionId, version: { increment: 1 } } });
   }
   if (kind === "PAUSE") {
     return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { isRunning: false, remainingSeconds: displayedRemaining(room, now), phaseStartedAt: null, endsAt: null, version: { increment: 1 } } });
   }
   if (kind === "RESET") {
-    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { isRunning: false, remainingSeconds: secondsForPhase(room.phase, room.focusMinutes, room.breakMinutes), phaseStartedAt: null, endsAt: null, version: { increment: 1 } } });
+    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { isRunning: false, remainingSeconds: secondsForPhase(room.phase, room.focusMinutes, room.breakMinutes), phaseStartedAt: null, endsAt: null, focusSessionId: null, version: { increment: 1 } } });
   }
   if (kind === "SKIP") {
     const phase = oppositePhase(room.phase);
     const seconds = secondsForPhase(phase, room.focusMinutes, room.breakMinutes);
+    const focusSessionId = phase === "FOCUS" && room.autoStart ? crypto.randomUUID() : null;
     await prisma.groupTimerParticipant.updateMany({ where: { roomId }, data: { creditedUntil: now } });
-    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: room.autoStart ? { phase, isRunning: true, remainingSeconds: seconds, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), version: { increment: 1 } } : { phase, isRunning: false, remainingSeconds: seconds, phaseStartedAt: null, endsAt: null, version: { increment: 1 } } });
+    return prisma.groupTimerRoom.update({ where: { id: roomId }, data: room.autoStart ? { phase, isRunning: true, remainingSeconds: seconds, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), focusSessionId, version: { increment: 1 } } : { phase, isRunning: false, remainingSeconds: seconds, phaseStartedAt: null, endsAt: null, focusSessionId: null, version: { increment: 1 } } });
   }
   const focusMinutes = Math.max(1, Math.min(240, Number(payload?.focusMinutes) || room.focusMinutes));
   const breakMinutes = Math.max(1, Math.min(60, Number(payload?.breakMinutes) || room.breakMinutes));
   const autoStart = Boolean(payload?.autoStart);
-  return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { focusMinutes, breakMinutes, autoStart, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: secondsForPhase(room.phase, focusMinutes, breakMinutes), version: { increment: 1 } } });
+  return prisma.groupTimerRoom.update({ where: { id: roomId }, data: { focusMinutes, breakMinutes, autoStart, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: secondsForPhase(room.phase, focusMinutes, breakMinutes), focusSessionId: null, version: { increment: 1 } } });
 }
 
 export async function dailyContext(userId: string, timezone: string, now = new Date()) {

@@ -25,7 +25,7 @@ type TimerSnapshot = {
   proposal: Proposal | null;
   notice: { status: "APPROVED" | "DECLINED" | "EXPIRED"; kind: string } | null;
   daily: {
-    today: { id: string; focusedSeconds: number; targetMinutes: number; carryOverMinutes: number; completionShown: boolean };
+    today: { id: string; focusedSeconds: number; focusSessions: number; targetMinutes: number; carryOverMinutes: number; completionShown: boolean };
     effectiveTarget: number;
     completed: boolean;
     carryPrompt: { dateKey: string; seconds: number } | null;
@@ -225,7 +225,7 @@ function FloatingTimer({ snapshot, remaining, mutate, busy, error, onClose }: { 
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="font-mono text-5xl font-semibold tabular-nums tracking-[-0.08em]">{minutes}:{seconds}</p>
-            <p className="mt-2 text-xs text-muted-foreground">{Math.floor(snapshot.daily.today.focusedSeconds / 60)} of {snapshot.daily.effectiveTarget} minutes today</p>
+            <p className="mt-2 text-xs text-muted-foreground">{Math.floor(snapshot.daily.today.focusedSeconds / 60)} of {snapshot.daily.effectiveTarget} minutes today · {snapshot.daily.today.focusSessions} {snapshot.daily.today.focusSessions === 1 ? "session" : "sessions"}</p>
           </div>
           <div className={`grid h-20 w-20 place-items-center rounded-full border-[7px] ${group ? "border-indigo-100 bg-indigo-50 text-indigo-700 dark:border-indigo-950 dark:bg-indigo-950" : "border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-950 dark:bg-rose-950"}`}>
             <button disabled={busy} type="button" onClick={() => command(timer.isRunning ? "pause" : "start")} className="grid h-12 w-12 place-items-center rounded-full bg-background shadow-sm transition-transform hover:scale-105" aria-label={timer.isRunning ? "Pause timer" : "Start timer"}>

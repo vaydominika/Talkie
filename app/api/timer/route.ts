@@ -8,6 +8,7 @@ import {
   dailyContext,
   displayedRemaining,
   getPersonalTimer,
+  incrementFocusSession,
   oppositePhase,
   reconcilePersonal,
   reconcileRoom,
@@ -94,20 +95,24 @@ export async function POST(request: Request) {
       const command = body.groupId;
       if (command === "start") {
         const seconds = displayedRemaining(timer, now) || secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes);
-        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: true, remainingSeconds: seconds, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), creditedUntil: now, version: { increment: 1 } } });
+        const focusSessionId = timer.phase === "FOCUS" ? timer.focusSessionId ?? crypto.randomUUID() : null;
+        if (focusSessionId && !timer.focusSessionId) await incrementFocusSession(userId, now, timezone);
+        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: true, remainingSeconds: seconds, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), creditedUntil: now, focusSessionId, version: { increment: 1 } } });
       } else if (command === "pause") {
         await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: displayedRemaining(timer, now), phaseStartedAt: null, endsAt: null, version: { increment: 1 } } });
       } else if (command === "reset") {
-        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes), phaseStartedAt: null, endsAt: null, creditedUntil: null, version: { increment: 1 } } });
+        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes), phaseStartedAt: null, endsAt: null, creditedUntil: null, focusSessionId: null, version: { increment: 1 } } });
       } else if (command === "skip") {
         const phase = oppositePhase(timer.phase);
         const seconds = secondsForPhase(phase, timer.focusMinutes, timer.breakMinutes);
         const running = timer.autoStart;
-        await prisma.personalTimerState.update({ where: { userId }, data: { phase, isRunning: running, remainingSeconds: seconds, phaseStartedAt: running ? now : null, endsAt: running ? new Date(now.getTime() + seconds * 1000) : null, creditedUntil: running ? now : null, version: { increment: 1 } } });
+        const focusSessionId = phase === "FOCUS" && running ? crypto.randomUUID() : null;
+        if (focusSessionId) await incrementFocusSession(userId, now, timezone);
+        await prisma.personalTimerState.update({ where: { userId }, data: { phase, isRunning: running, remainingSeconds: seconds, phaseStartedAt: running ? now : null, endsAt: running ? new Date(now.getTime() + seconds * 1000) : null, creditedUntil: running ? now : null, focusSessionId, version: { increment: 1 } } });
       } else if (command === "settings") {
         const focusMinutes = Math.max(1, Math.min(240, Number(body.focusMinutes) || 25));
         const breakMinutes = Math.max(1, Math.min(60, Number(body.breakMinutes) || 5));
-        await prisma.personalTimerState.update({ where: { userId }, data: { focusMinutes, breakMinutes, autoStart: Boolean(body.autoStart), isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: secondsForPhase(timer.phase, focusMinutes, breakMinutes), version: { increment: 1 } } });
+        await prisma.personalTimerState.update({ where: { userId }, data: { focusMinutes, breakMinutes, autoStart: Boolean(body.autoStart), isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: secondsForPhase(timer.phase, focusMinutes, breakMinutes), focusSessionId: null, version: { increment: 1 } } });
       }
     } else if (action === "join") {
       const membership = await requireMembership(String(body.groupId), userId);

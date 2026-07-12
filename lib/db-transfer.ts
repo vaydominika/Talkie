@@ -6,6 +6,8 @@ export const DATABASE_TRANSFER_TABLES = [
   "User",
   "UserProfile",
   "UserPreference",
+  "DailyStudyRecord",
+  "PersonalTimerState",
   "Account",
   "Language",
   "LanguageTab",
@@ -18,7 +20,11 @@ export const DATABASE_TRANSFER_TABLES = [
   "LessonTest",
   "LessonTestQuestion",
   "Group",
+  "GroupTimerRoom",
   "GroupMember",
+  "GroupTimerParticipant",
+  "GroupTimerProposal",
+  "GroupTimerVote",
   "GroupLanguage",
   "UserLanguage",
   "VocabularyEntry",
@@ -49,6 +55,8 @@ const JSON_COLUMNS = new Set([
   "LessonTestQuestion.answer",
   "LessonTestQuestion.options",
   "LessonTestAttempt.answers",
+  "GroupTimerProposal.payload",
+  "GroupTimerProposal.requiredUserIds",
 ]);
 
 const ENUM_COLUMNS = new Map<string, string>([
@@ -61,6 +69,10 @@ const ENUM_COLUMNS = new Map<string, string>([
   ["LessonTestQuestion.type", "TestQuestionType"],
   ["FlashcardReviewState.state", "CardState"],
   ["GroupMember.role", "GroupRole"],
+  ["PersonalTimerState.phase", "TimerPhase"],
+  ["GroupTimerRoom.phase", "TimerPhase"],
+  ["GroupTimerProposal.kind", "TimerProposalKind"],
+  ["GroupTimerProposal.status", "TimerProposalStatus"],
 ]);
 
 const TIMESTAMP_COLUMNS = new Set([
@@ -75,6 +87,22 @@ const TIMESTAMP_COLUMNS = new Set([
   "GroupMember.joinedAt",
   "GroupLanguage.addedAt",
   "UserLanguage.joinedAt",
+  "DailyStudyRecord.createdAt",
+  "DailyStudyRecord.updatedAt",
+  "PersonalTimerState.phaseStartedAt",
+  "PersonalTimerState.endsAt",
+  "PersonalTimerState.creditedUntil",
+  "PersonalTimerState.updatedAt",
+  "GroupTimerRoom.phaseStartedAt",
+  "GroupTimerRoom.endsAt",
+  "GroupTimerRoom.updatedAt",
+  "GroupTimerParticipant.joinedAt",
+  "GroupTimerParticipant.lastSeenAt",
+  "GroupTimerParticipant.creditedUntil",
+  "GroupTimerProposal.expiresAt",
+  "GroupTimerProposal.createdAt",
+  "GroupTimerProposal.resolvedAt",
+  "GroupTimerVote.createdAt",
 ]);
 
 function quoteIdentifier(identifier: string) {
