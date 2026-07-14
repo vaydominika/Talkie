@@ -7,7 +7,7 @@ import { SidebarLink } from "@/components/sidebar-link";
 import { UserAvatar } from "@/components/user-avatar";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
-import { TimerProvider, TimerTrigger } from "@/components/timer-provider";
+import { NotificationIndicator, TimerProvider, TimerTrigger } from "@/components/timer-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -63,6 +63,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </SidebarLink>
               <SidebarLink href="/app/groups">
                 Groups
+              </SidebarLink>
+              <SidebarLink href="/app/friends">
+                Friends
+              </SidebarLink>
+              <SidebarLink href="/app/listening">
+                Listening
               </SidebarLink>
             </div>
             <div className="space-y-1">
@@ -133,6 +139,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <SidebarLink href="/app/groups">
                     Groups
                   </SidebarLink>
+                  <SidebarLink href="/app/friends">
+                    Friends
+                  </SidebarLink>
+                  <SidebarLink href="/app/listening">
+                    Listening
+                  </SidebarLink>
                 </div>
                 <div className="space-y-1">
                   <p className="px-3 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
@@ -186,6 +198,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            <NotificationIndicator />
             <TimerTrigger />
             <span className="text-sm text-muted-foreground">{displayName}</span>
           </div>

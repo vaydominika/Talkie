@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SpeakButton } from "@/components/speak-button";
 import { summarizeWeakWords, type ReviewAttemptLike } from "@/lib/vocabulary-review";
 
@@ -15,9 +16,9 @@ type Word = {
 };
 
 type Direction = "target-native" | "native-target" | "random";
-type StudyMode = "all" | "weak";
+type StudyMode = "all" | "weak" | "due";
 type Card = { word: Word; direction: Exclude<Direction, "random"> };
-type AttemptAction = (formData: FormData) => void | Promise<void>;
+type AttemptAction = (formData: FormData) => unknown | Promise<unknown>;
 type ReviewAttempt = ReviewAttemptLike & {
   id: string;
 };
@@ -61,6 +62,8 @@ export function VocabularyFlashcards({
   reviewAttempts = [],
   saveAttemptAction,
   resetAttemptsAction,
+  rateReviewAction,
+  dueIds = new Set<string>(),
 }: {
   words: Word[];
   selectedIds: Set<string>;
@@ -72,6 +75,8 @@ export function VocabularyFlashcards({
   reviewAttempts?: ReviewAttempt[];
   saveAttemptAction?: AttemptAction;
   resetAttemptsAction?: AttemptAction;
+  rateReviewAction?: AttemptAction;
+  dueIds?: Set<string>;
 }) {
   const selectedWords = useMemo(() => words.filter((word) => selectedIds.has(word.id)), [words, selectedIds]);
   const selectedWordKey = useMemo(() => selectedWords.map((word) => word.id).join("|"), [selectedWords]);
@@ -86,7 +91,10 @@ export function VocabularyFlashcards({
   const weakWordIds = useMemo(() => new Set(activeWeakSummaries.map((summary) => summary.vocabularyEntryId)), [activeWeakSummaries]);
   const weakWordKey = useMemo(() => activeWeakSummaries.map((summary) => summary.vocabularyEntryId).join("|"), [activeWeakSummaries]);
   const [direction, setDirection] = useState<Direction>("target-native");
-  const [studyMode, setStudyMode] = useState<StudyMode>("all");
+  const searchParams=useSearchParams();
+  const requestedMode=searchParams.get("mode");
+  const [studyMode, setStudyMode] = useState<StudyMode>(requestedMode==="due"||requestedMode==="weak"?requestedMode:"all");
+  const [ratingState,setRatingState]=useState<{busy:boolean;message:string;error:string}>({busy:false,message:"",error:""});
   const [randomOrder, setRandomOrder] = useState(true);
   const [deck, setDeck] = useState<Card[]>([]);
   const [index, setIndex] = useState(0);
@@ -94,16 +102,16 @@ export function VocabularyFlashcards({
   const [status, setStatus] = useState<"idle" | "correct" | "wrong">("idle");
   const [revealed, setRevealed] = useState(false);
   const practiceWords = useMemo(
-    () => (studyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : selectedWords),
-    [selectedWords, studyMode, weakWordIds],
+    () => studyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : studyMode === "due" ? selectedWords.filter((word)=>dueIds.has(word.id)) : selectedWords,
+    [selectedWords, studyMode, weakWordIds, dueIds],
   );
-  const deckRebuildKey = studyMode === "weak" ? `${selectedWordKey}|${weakWordKey}` : selectedWordKey;
+  const deckRebuildKey = studyMode === "weak" ? `${selectedWordKey}|${weakWordKey}` : studyMode === "due" ? `${selectedWordKey}|${[...dueIds].join("|")}` : selectedWordKey;
 
   const rebuild = (nextDirection = direction, nextRandomOrder = randomOrder, nextStudyMode = studyMode) => {
     setDirection(nextDirection);
     setRandomOrder(nextRandomOrder);
     setStudyMode(nextStudyMode);
-    const nextWords = nextStudyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : selectedWords;
+    const nextWords = nextStudyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : nextStudyMode === "due" ? selectedWords.filter((word)=>dueIds.has(word.id)) : selectedWords;
     setDeck(buildDeck(nextWords, nextDirection, nextRandomOrder));
     setIndex(0);
     setAnswer("");
@@ -167,7 +175,6 @@ export function VocabularyFlashcards({
     event.preventDefault();
     if (!card) return;
     if (status !== "idle") {
-      next();
       return;
     }
 
@@ -201,6 +208,10 @@ export function VocabularyFlashcards({
       },
     ]);
   };
+  const rateCard = async (rating: "AGAIN" | "HARD" | "GOOD" | "EASY") => {
+    if (card && rateReviewAction) { const data=new FormData(); data.set("wordId",card.word.id); data.set("rating",rating);setRatingState({busy:true,message:"",error:""});try{const result=await rateReviewAction(data) as {dueAt?:string;intervalDays?:number;state?:string}|undefined;const label=result?.intervalDays?`${result.intervalDays} day${result.intervalDays===1?"":"s"}`:result?.dueAt?new Intl.DateTimeFormat(undefined,{hour:"numeric",minute:"2-digit"}).format(new Date(result.dueAt)):"soon";setRatingState({busy:false,message:`Next review: ${label}`,error:""});}catch(error){setRatingState({busy:false,message:"",error:error instanceof Error?error.message:"Could not save this rating."});}}
+    next();
+  };
 
   if (!selectedWords.length) {
     return (
@@ -221,14 +232,15 @@ export function VocabularyFlashcards({
           <Toggle active={studyMode === "weak"} onClick={() => rebuild(direction, randomOrder, "weak")}>
             Weak
           </Toggle>
+          <Toggle active={studyMode === "due"} onClick={() => rebuild(direction, randomOrder, "due")}>Due</Toggle>
           <Toggle active={randomOrder} onClick={() => rebuild(direction, !randomOrder, studyMode)}>
             {randomOrder ? "Random order" : "Ordered"}
           </Toggle>
         </div>
         <section className="rounded-lg border border-dashed p-8 text-center">
-          <h2 className="text-xl font-semibold">No weak words right now.</h2>
+          <h2 className="text-xl font-semibold">No {studyMode === "due" ? "due" : "weak"} words right now.</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Weak words appear here after a hint is used or an answer is missed, and stay until answered correctly without a hint.
+            {studyMode === "due" ? "Rated words appear here when their scheduled review time arrives." : "Weak words appear here after a hint is used or an answer is missed, and stay until answered correctly without a hint."}
           </p>
         </section>
       </div>
@@ -244,6 +256,7 @@ export function VocabularyFlashcards({
         <Toggle active={studyMode === "weak"} onClick={() => rebuild(direction, randomOrder, "weak")}>
           Weak
         </Toggle>
+        <Toggle active={studyMode === "due"} onClick={() => rebuild(direction, randomOrder, "due")}>Due</Toggle>
         <Toggle active={direction === "target-native"} onClick={() => rebuild("target-native")}>
           Word to English
         </Toggle>
@@ -310,11 +323,7 @@ export function VocabularyFlashcards({
             <button type="button" onClick={() => setRevealed((value) => !value)} className="rounded-md border border-stone-500 bg-white px-3 py-2 text-sm font-medium text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
               {revealed ? "Hide answer" : "Reveal answer"}
             </button>
-            {status !== "idle" && (
-              <button type="submit" className="rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700">
-                Next card
-              </button>
-            )}
+            {status !== "idle" && rateReviewAction && <div><div className="flex flex-wrap justify-center gap-2">{(["AGAIN","HARD","GOOD","EASY"] as const).map(rating=><button disabled={ratingState.busy} key={rating} type="button" onClick={()=>rateCard(rating)} className={`rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50 ${rating==="AGAIN"?"bg-rose-100 text-rose-700":rating==="HARD"?"bg-amber-100 text-amber-800":rating==="EASY"?"bg-emerald-100 text-emerald-800":"bg-indigo-100 text-indigo-800"}`}>{rating[0]+rating.slice(1).toLowerCase()}</button>)}</div>{ratingState.message&&<p className="mt-2 text-center text-xs text-emerald-700" aria-live="polite">{ratingState.message}</p>}{ratingState.error&&<p className="mt-2 text-center text-xs text-rose-700" role="alert">{ratingState.error}</p>}</div>}
             <button type="button" onClick={next} className="rounded-md border border-stone-500 bg-white px-3 py-2 text-sm font-medium text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
               Skip
             </button>
@@ -325,7 +334,7 @@ export function VocabularyFlashcards({
           </p>
         </form>
         <p className="mt-6 text-xs text-muted-foreground">
-          {index + 1} / {deck.length} {studyMode === "weak" ? "weak" : "selected"} words
+          {index + 1} / {deck.length} {studyMode === "weak" ? "weak" : studyMode === "due" ? "due" : "selected"} words
         </p>
       </section>
     </div>

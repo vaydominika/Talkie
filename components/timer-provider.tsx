@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppModal } from "@/components/app-modal";
 import { Button } from "@/components/ui/button";
 import { Check, Clock3, FastForward, Pause, Play, RefreshCcw, Settings2, TimerReset, Users, X } from "lucide-react";
+import Link from "next/link";
 
 type Timer = {
   id: string;
@@ -24,6 +25,9 @@ type TimerSnapshot = {
   group: GroupTimer | null;
   proposal: Proposal | null;
   notice: { status: "APPROVED" | "DECLINED" | "EXPIRED"; kind: string } | null;
+  recap: { id: string; focusedSeconds: number; contextTitle:string; reviewedWords: number; newWords: number; accuracy: number; weakCleared: number; lessons: number; recapNote: string | null; effort: number | null } | null;
+  unreadNotifications: number;
+  quests: {id:string;title:string;target:number;progress:number;completedAt:string|null}[];
   daily: {
     today: { id: string; focusedSeconds: number; focusSessions: number; targetMinutes: number; carryOverMinutes: number; completionShown: boolean };
     effectiveTarget: number;
@@ -39,6 +43,7 @@ type TimerContextValue = {
   joinGroup: (groupId: string) => Promise<void>;
   leaveGroup: () => Promise<void>;
   busy: boolean;
+  mutate: (body:Record<string,unknown>)=>Promise<TimerSnapshot|null>;
 };
 
 const TimerContext = createContext<TimerContextValue | null>(null);
@@ -152,13 +157,13 @@ export function TimerProvider({ children, userId }: { children: React.ReactNode;
   }, [mutate]);
   const leaveGroup = useCallback(async () => { await mutate({ action: "leave" }); }, [mutate]);
 
-  const context = useMemo(() => ({ snapshot, open, setOpen, joinGroup, leaveGroup, busy }), [snapshot, open, joinGroup, leaveGroup, busy]);
+  const context = useMemo(() => ({ snapshot, open, setOpen, joinGroup, leaveGroup, busy,mutate }), [snapshot, open, joinGroup, leaveGroup, busy,mutate]);
 
   return (
     <TimerContext.Provider value={context}>
       {children}
       {open && snapshot && <FloatingTimer snapshot={snapshot} remaining={remaining} mutate={mutate} busy={busy} error={error} onClose={() => setOpen(false)} />}
-      {snapshot?.proposal ? <ProposalDialog proposal={snapshot.proposal} userId={userId} mutate={mutate} busy={busy} /> : snapshot?.daily.carryPrompt ? <CarryDialog snapshot={snapshot} mutate={mutate} busy={busy} /> : snapshot?.daily.completed && !snapshot.daily.today.completionShown ? <CompletionDialog snapshot={snapshot} mutate={mutate} /> : null}
+      {snapshot?.proposal ? <ProposalDialog proposal={snapshot.proposal} userId={userId} mutate={mutate} busy={busy} /> : snapshot?.recap ? <FocusRecapDialog recap={snapshot.recap} mutate={mutate} busy={busy} /> : snapshot?.daily.carryPrompt ? <CarryDialog snapshot={snapshot} mutate={mutate} busy={busy} /> : snapshot?.daily.completed && !snapshot.daily.today.completionShown ? <CompletionDialog snapshot={snapshot} mutate={mutate} /> : null}
       <div className="sr-only" aria-live="polite">{error}</div>
     </TimerContext.Provider>
   );
@@ -173,6 +178,11 @@ export function TimerTrigger() {
       {timer?.isRunning && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-background" />}
     </button>
   );
+}
+
+export function NotificationIndicator() {
+  const { snapshot } = useTimer(); const count=snapshot?.unreadNotifications??0;
+  return <Link href="/app/friends" aria-label={`${count} unread friend notifications`} className="relative rounded-full border px-2.5 py-1.5 text-xs font-medium hover:bg-muted">Friends{count>0&&<span className="ml-1.5 inline-grid min-w-4 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] text-white">{Math.min(count,99)}</span>}</Link>;
 }
 
 function FloatingTimer({ snapshot, remaining, mutate, busy, error, onClose }: { snapshot: TimerSnapshot; remaining: number; mutate: (body: Record<string, unknown>) => Promise<TimerSnapshot | null>; busy: boolean; error: string; onClose: () => void }) {
@@ -274,5 +284,16 @@ function CarryDialog({ snapshot, mutate, busy }: { snapshot: TimerSnapshot; muta
 function CompletionDialog({ snapshot, mutate }: { snapshot: TimerSnapshot; mutate: (body: Record<string, unknown>) => Promise<TimerSnapshot | null> }) {
   return <AppModal title="Daily goal complete" description={`You reached ${snapshot.daily.effectiveTarget} focused minutes today.`} onClose={() => mutate({ action: "completion_seen" }).then(() => undefined)}>
     <div className="text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Check className="h-8 w-8" /></div><Button className="mt-5 bg-emerald-700 text-white hover:bg-emerald-800" onClick={() => mutate({ action: "completion_seen" })}>Done</Button></div>
+  </AppModal>;
+}
+
+function FocusRecapDialog({ recap, mutate, busy }: { recap: NonNullable<TimerSnapshot["recap"]>; mutate: (body: Record<string, unknown>) => Promise<TimerSnapshot | null>; busy: boolean }) {
+  const [note, setNote] = useState(recap.recapNote??"");
+  const [effort, setEffort] = useState(recap.effort??3);
+  return <AppModal title="Focus session complete" description={`${recap.contextTitle} · ${Math.floor(recap.focusedSeconds / 60)} focused minutes recorded.`} onClose={() => mutate({ action: "dismiss_recap", sessionId: recap.id }).then(() => undefined)}>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{[["Reviewed", recap.reviewedWords], ["New", recap.newWords], ["Accuracy", `${recap.accuracy}%`], ["Weak cleared", recap.weakCleared], ["Lessons", recap.lessons]].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-muted/50 p-3 text-center"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div>
+    <label className="mt-4 block text-sm font-medium">Private note<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} className="mt-1 min-h-20 w-full rounded-md border bg-background p-3" placeholder="What did you work on?" /></label>
+    <label className="mt-3 block text-sm font-medium">Effort: {effort}/5<input type="range" min="1" max="5" value={effort} onChange={(event) => setEffort(Number(event.target.value))} className="mt-2 w-full" /></label>
+    <div className="mt-5 grid grid-cols-2 gap-3"><Button disabled={busy} variant="outline" onClick={() => mutate({ action: "dismiss_recap", sessionId: recap.id })}>Not now</Button><Button disabled={busy} className="bg-rose-600 text-white hover:bg-rose-700" onClick={() => mutate({ action: "save_recap", sessionId: recap.id, note, effort })}>Save reflection</Button></div>
   </AppModal>;
 }

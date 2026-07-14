@@ -3,6 +3,9 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { scheduleReview, type Rating } from "@/lib/scheduler";
+import { recordQuestEvent, userTimezone } from "@/lib/learning-loop";
+import { summarizeWeakWords } from "@/lib/vocabulary-review";
 
 export async function saveVocabularyReviewAttempt(formData: FormData) {
   const session = await auth();
@@ -23,7 +26,9 @@ export async function saveVocabularyReviewAttempt(formData: FormData) {
     throw new Error("Missing attempt data");
   }
 
-  await prisma.vocabularyReviewAttempt.create({
+  const prior=await prisma.vocabularyReviewAttempt.findMany({where:{userId:session.user.id,vocabularyEntryId},orderBy:{createdAt:"desc"},take:20});
+  const wasWeak=summarizeWeakWords(prior).some(item=>item.vocabularyEntryId===vocabularyEntryId&&!item.cleared);
+  const attempt=await prisma.vocabularyReviewAttempt.create({
     data: {
       userId: session.user.id,
       vocabularyEntryId,
@@ -38,6 +43,7 @@ export async function saveVocabularyReviewAttempt(formData: FormData) {
       usedHint,
     },
   });
+  const timezone=await userTimezone(session.user.id);await recordQuestEvent(session.user.id,timezone,{key:`review:${attempt.id}`,type:"REVIEW",at:attempt.createdAt});if(wasWeak&&correct&&!usedHint)await recordQuestEvent(session.user.id,timezone,{key:`weak-cleared:${attempt.id}`,type:"WEAK_CLEARED",at:attempt.createdAt});
 }
 
 export async function resetVocabularyReviewAttempts(formData: FormData) {
@@ -97,4 +103,17 @@ export async function saveVocabularyPracticePreference(formData: FormData) {
     },
     update: { enabled },
   });
+}
+
+export async function rateVocabularyReview(formData: FormData) {
+  const session = await auth(); if (!session?.user?.id) throw new Error("Unauthorized");
+  const vocabularyEntryId=String(formData.get("wordId")??""); const rating=String(formData.get("rating")??"") as Rating;
+  if(!["AGAIN","HARD","GOOD","EASY"].includes(rating))throw new Error("Invalid rating");
+  const word=await prisma.vocabularyEntry.findFirst({where:{id:vocabularyEntryId,OR:[{userId:session.user.id,groupId:null},{group:{members:{some:{userId:session.user.id}}}}]},select:{id:true}});if(!word)throw new Error("Word not found");
+  const current=await prisma.flashcardReviewState.findUnique({where:{userId_vocabularyEntryId:{userId:session.user.id,vocabularyEntryId}}});
+  const next=scheduleReview(current?{state:current.state,intervalDays:current.intervalDays,easeFactor:current.easeFactor,learningStep:current.learningStep,lapses:current.lapses,successfulReviews:current.successfulReviews,totalReviews:current.totalReviews}:{state:"NEW",intervalDays:0,easeFactor:2.5,learningStep:0,lapses:0,successfulReviews:0,totalReviews:0},rating);
+  await prisma.flashcardReviewState.upsert({where:{userId_vocabularyEntryId:{userId:session.user.id,vocabularyEntryId}},update:{...next,lastRating:rating},create:{userId:session.user.id,vocabularyEntryId,...next,lastRating:rating}});
+  await recordQuestEvent(session.user.id,await userTimezone(session.user.id),{key:`rating:${vocabularyEntryId}:${next.totalReviews}`,type:"REVIEW",amount:0});
+  revalidatePath("/app/dashboard");
+  return { dueAt: next.dueAt.toISOString(), intervalDays: next.intervalDays, state: next.state };
 }

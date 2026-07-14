@@ -4,7 +4,7 @@ import { LanguageTabs } from "@/components/language-tabs";
 import { matchesLanguageSlug } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 import { importGroupVocabularyToProfileAction, importProfileVocabularyToGroupAction } from "../groups/actions";
-import { resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../review/actions";
+import { rateVocabularyReview, resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../review/actions";
 import { addPersonalVocabulary, addPersonalVocabularyBulk, deletePersonalVocabulary, updatePersonalVocabulary } from "../vocabulary/actions";
 
 export default async function LanguagePage({ params }: { params: Promise<{ language: string }> }) {
@@ -26,7 +26,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
   if (!language) notFound();
   const currentLanguage = language;
 
-  const [words, grammar, media, groupMemberships, reviewAttempts, practicePreferences] = await Promise.all([
+  const [words, grammar, media, groupMemberships, reviewAttempts, practicePreferences, dueStates] = await Promise.all([
     prisma.vocabularyEntry.findMany({
       where: {
         languageId: currentLanguage.id,
@@ -86,6 +86,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
       },
       select: { vocabularyEntryId: true, enabled: true },
     }),
+    prisma.flashcardReviewState.findMany({where:{userId:session.user.id,dueAt:{lte:new Date()},state:{notIn:["SUSPENDED","BURIED"]},vocabularyEntry:{languageId:currentLanguage.id,userId:session.user.id,groupId:null}},select:{vocabularyEntryId:true}}),
   ]);
 
   const strokeOrderImages = Object.fromEntries(media.map((asset) => [asset.targetKey!, asset.url]));
@@ -131,6 +132,8 @@ export default async function LanguagePage({ params }: { params: Promise<{ langu
           reviewAttempts={reviewAttempts}
           saveAttemptAction={saveVocabularyReviewAttempt}
           resetAttemptsAction={resetVocabularyReviewAttempts}
+          rateReviewAction={rateVocabularyReview}
+          dueWordIds={dueStates.map(item=>item.vocabularyEntryId)}
           savePracticePreferenceAction={saveVocabularyPracticePreference}
           initialSelectedIds={initialSelectedIds}
           importGroupVocabularyToProfileAction={importGroupVocabularyToProfileAction}

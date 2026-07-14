@@ -775,7 +775,10 @@ export async function removeGroupMember(formData: FormData) {
   }
 
   await prisma.$transaction([
+    prisma.groupTimerVote.deleteMany({where:{userId:member.userId,proposal:{room:{groupId},status:"PENDING"}}}),
     prisma.groupTimerParticipant.deleteMany({ where: { userId: member.userId, room: { groupId } } }),
+    prisma.groupInvitation.updateMany({where:{inviteeId:member.userId,groupId,status:"PENDING"},data:{status:"CANCELED",resolvedAt:new Date(),dedupeKey:null}}),
+    prisma.groupTimerInvitation.updateMany({where:{inviteeId:member.userId,room:{groupId},status:"PENDING"},data:{status:"CANCELED",resolvedAt:new Date(),dedupeKey:null}}),
     prisma.groupMember.delete({ where: { id: memberId } }),
   ]);
 

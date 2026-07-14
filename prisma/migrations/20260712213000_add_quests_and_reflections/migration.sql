@@ -1,0 +1,17 @@
+CREATE TYPE "QuestType" AS ENUM ('DUE_REVIEWS','WEAK_WORDS','LESSON_PROGRESS','LISTENING_ROUNDS','ACCURACY','FOCUS_MINUTES');
+ALTER TABLE "DailyStudyRecord" ADD COLUMN "questSetCompletedAt" TIMESTAMP(3);
+CREATE TABLE "DailyQuestSet" ("id" TEXT NOT NULL,"userId" TEXT NOT NULL,"dateKey" TEXT NOT NULL,"timezone" TEXT NOT NULL,"completedAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "DailyQuestSet_pkey" PRIMARY KEY("id"));
+CREATE UNIQUE INDEX "DailyQuestSet_userId_dateKey_key" ON "DailyQuestSet"("userId","dateKey");
+CREATE TABLE "DailyQuest" ("id" TEXT NOT NULL,"userId" TEXT NOT NULL,"questSetId" TEXT NOT NULL,"dateKey" TEXT NOT NULL,"timezone" TEXT NOT NULL,"position" INTEGER NOT NULL,"type" "QuestType" NOT NULL,"title" TEXT NOT NULL,"target" INTEGER NOT NULL,"progress" INTEGER NOT NULL DEFAULT 0,"completedAt" TIMESTAMP(3),"metadata" JSONB,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "DailyQuest_pkey" PRIMARY KEY("id"));
+CREATE UNIQUE INDEX "DailyQuest_questSetId_position_key" ON "DailyQuest"("questSetId","position");
+CREATE TABLE "QuestEvent" ("id" TEXT NOT NULL,"userId" TEXT NOT NULL,"questSetId" TEXT NOT NULL,"eventKey" TEXT NOT NULL,"type" TEXT NOT NULL,"amount" INTEGER NOT NULL DEFAULT 1,"occurredAt" TIMESTAMP(3) NOT NULL,"metadata" JSONB,CONSTRAINT "QuestEvent_pkey" PRIMARY KEY("id"));
+CREATE UNIQUE INDEX "QuestEvent_userId_eventKey_key" ON "QuestEvent"("userId","eventKey"); CREATE INDEX "QuestEvent_questSetId_occurredAt_idx" ON "QuestEvent"("questSetId","occurredAt");
+CREATE TABLE "WeeklyReflection" ("id" TEXT NOT NULL,"userId" TEXT NOT NULL,"weekKey" TEXT NOT NULL,"timezone" TEXT NOT NULL,"metrics" JSONB NOT NULL,"suggestedDailyMinutes" INTEGER NOT NULL,"acceptedDailyMinutes" INTEGER,"acceptedAt" TIMESTAMP(3),"effectiveMonday" TEXT,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "WeeklyReflection_pkey" PRIMARY KEY("id"));
+CREATE UNIQUE INDEX "WeeklyReflection_userId_weekKey_key" ON "WeeklyReflection"("userId","weekKey");
+CREATE TABLE "WeeklyGoalSchedule" ("id" TEXT NOT NULL,"userId" TEXT NOT NULL,"effectiveMonday" TEXT NOT NULL,"dailyMinutes" INTEGER NOT NULL,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "WeeklyGoalSchedule_pkey" PRIMARY KEY("id"));
+CREATE UNIQUE INDEX "WeeklyGoalSchedule_userId_effectiveMonday_key" ON "WeeklyGoalSchedule"("userId","effectiveMonday");
+ALTER TABLE "DailyQuestSet" ADD CONSTRAINT "DailyQuestSet_userId_fkey" FOREIGN KEY("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "DailyQuest" ADD CONSTRAINT "DailyQuest_userId_fkey" FOREIGN KEY("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; ALTER TABLE "DailyQuest" ADD CONSTRAINT "DailyQuest_questSetId_fkey" FOREIGN KEY("questSetId") REFERENCES "DailyQuestSet"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuestEvent" ADD CONSTRAINT "QuestEvent_userId_fkey" FOREIGN KEY("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; ALTER TABLE "QuestEvent" ADD CONSTRAINT "QuestEvent_questSetId_fkey" FOREIGN KEY("questSetId") REFERENCES "DailyQuestSet"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "WeeklyReflection" ADD CONSTRAINT "WeeklyReflection_userId_fkey" FOREIGN KEY("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "WeeklyGoalSchedule" ADD CONSTRAINT "WeeklyGoalSchedule_userId_fkey" FOREIGN KEY("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

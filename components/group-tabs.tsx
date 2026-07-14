@@ -7,6 +7,7 @@ import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 import { Button } from "@/components/ui/button";
+import { useSearchParams } from "next/navigation";
 import {
   importGroupVocabularyToProfileAction,
   importProfileVocabularyToGroupAction,
@@ -52,7 +53,7 @@ type UpdateWordAction = (formData: FormData) => Promise<void>;
 type DeleteWordAction = (formData: FormData) => Promise<void>;
 type UpdateMemberRoleAction = (formData: FormData) => Promise<void>;
 type RemoveMemberAction = (formData: FormData) => Promise<void>;
-type AttemptAction = (formData: FormData) => void | Promise<void>;
+type AttemptAction = (formData: FormData) => unknown | Promise<unknown>;
 type ReviewAttempt = {
   id: string;
   vocabularyEntryId: string;
@@ -88,6 +89,8 @@ export function GroupTabs({
   removeMemberAction,
   saveAttemptAction,
   resetAttemptsAction,
+  rateReviewAction,
+  dueWordIds,
   savePracticePreferenceAction,
   initialSelectedIds,
 }: {
@@ -111,9 +114,14 @@ export function GroupTabs({
   removeMemberAction: RemoveMemberAction;
   saveAttemptAction: AttemptAction;
   resetAttemptsAction: AttemptAction;
+  rateReviewAction: AttemptAction;
+  dueWordIds: string[];
   savePracticePreferenceAction: AttemptAction;
   initialSelectedIds: string[];
 }) {
+  const searchParams=useSearchParams();
+  const requestedMode=searchParams.get("mode");
+  const requestedLanguageId=searchParams.get("languageId");
   const [tab, setTab] = useState("vocabulary");
   const [tabReady, setTabReady] = useState(false);
   const [activeLanguageId, setActiveLanguageId] = useState(groupLanguages[0]?.id ?? "");
@@ -142,6 +150,7 @@ export function GroupTabs({
   const activeSync = syncCounts.find((item) => item.languageId === activeLanguage?.id);
 
   useEffect(() => {
+    if(requestedMode==="due"||requestedMode==="weak"){setTab("flashcards");if(requestedLanguageId&&groupLanguages.some(item=>item.id===requestedLanguageId))setActiveLanguageId(requestedLanguageId);setTabReady(true);return;}
     const stored = localStorage.getItem(activeTabStorageKey);
     if (stored && ["vocabulary", "flashcards", "members"].includes(stored)) {
       setTab(stored);
@@ -149,7 +158,7 @@ export function GroupTabs({
       setTab("vocabulary");
     }
     setTabReady(true);
-  }, [activeTabStorageKey]);
+  }, [activeTabStorageKey,requestedMode,requestedLanguageId,groupLanguages]);
 
   useEffect(() => {
     if (!tabReady) return;
@@ -424,6 +433,8 @@ export function GroupTabs({
             reviewAttempts={activeAttempts}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
+            rateReviewAction={rateReviewAction}
+            dueIds={new Set(dueWordIds)}
           />
           <div className="animate-panel-in grid gap-4 sm:grid-cols-5">
             <Stat label="Days learned" value={new Set(activeAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size} />

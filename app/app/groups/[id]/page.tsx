@@ -19,7 +19,7 @@ import {
   updateGroupMemberRole,
   updateGroupVocabulary,
 } from "../actions";
-import { resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../../review/actions";
+import { rateVocabularyReview, resetVocabularyReviewAttempts, saveVocabularyPracticePreference, saveVocabularyReviewAttempt } from "../../review/actions";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -103,7 +103,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const groupLanguageIds = group.languages.map((item) => item.languageId);
 
-  const [profileLanguages, profileVocabulary, reviewAttempts, practicePreferences] = await Promise.all([
+  const [profileLanguages, profileVocabulary, reviewAttempts, practicePreferences, dueStates] = await Promise.all([
     prisma.language.findMany({
       where: {
         users: {
@@ -140,6 +140,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       },
       select: { vocabularyEntryId: true, enabled: true },
     }),
+    prisma.flashcardReviewState.findMany({where:{userId:session.user.id,dueAt:{lte:new Date()},state:{notIn:["SUSPENDED","BURIED"]},vocabularyEntry:{groupId:group.id}},select:{vocabularyEntryId:true}}),
   ]);
 
   const personalKeys = new Set(profileVocabulary.map((word) => `${word.languageId}:${word.displayForm.toLowerCase().trim()}`));
@@ -246,6 +247,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         removeMemberAction={removeGroupMember}
         saveAttemptAction={saveVocabularyReviewAttempt}
         resetAttemptsAction={resetVocabularyReviewAttempts}
+        rateReviewAction={rateVocabularyReview}
+        dueWordIds={dueStates.map(item=>item.vocabularyEntryId)}
         savePracticePreferenceAction={saveVocabularyPracticePreference}
         initialSelectedIds={initialSelectedIds}
       />

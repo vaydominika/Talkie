@@ -5,8 +5,10 @@ import {
   ACTIVE_WINDOW_MS,
   PROPOSAL_WINDOW_MS,
   applyRoomAction,
+  dateKey,
   dailyContext,
   displayedRemaining,
+  finalizeFocusSession,
   getPersonalTimer,
   incrementFocusSession,
   oppositePhase,
@@ -16,8 +18,10 @@ import {
   secondsForPhase,
 } from "@/lib/timer";
 import type { Prisma, TimerProposalKind } from "@prisma/client";
+import { ensureDailyQuests } from "@/lib/learning-loop";
+import { reconcileFriendCommitments } from "@/lib/friends";
 
-type Body = { action?: string; timezone?: string; groupId?: string; proposalId?: string; approved?: boolean; focusMinutes?: number; breakMinutes?: number; autoStart?: boolean };
+type Body = { action?: string; timezone?: string; groupId?: string; proposalId?: string; sessionId?: string; note?: string; effort?: number; approved?: boolean; focusMinutes?: number; breakMinutes?: number; autoStart?: boolean; planItemId?:string; languageId?:string; lessonId?:string; destination?:string; plannedMinutes?:number };
 
 async function requireMembership(groupId: string, userId: string) {
   const membership = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId } }, include: { group: true } });
@@ -57,6 +61,7 @@ async function resolveProposal(proposalId: string) {
 
 async function serialize(userId: string, timezone: string) {
   const now = new Date();
+  await reconcileFriendCommitments(userId, timezone, now);
   const personal = await reconcilePersonal(userId, timezone, now);
   const participation = await prisma.groupTimerParticipant.findFirst({ where: { userId }, orderBy: { lastSeenAt: "desc" }, include: { room: { include: { group: { select: { id: true, name: true } } } } } });
   let group = null;
@@ -76,7 +81,23 @@ async function serialize(userId: string, timezone: string) {
     if (recent) notice = { status: recent.status, kind: recent.kind };
   }
   const daily = await dailyContext(userId, timezone, now);
-  return { serverNow: now, personal: { ...personal, remainingSeconds: displayedRemaining(personal, now) }, group, proposal, notice, daily: { ...daily, today: { ...daily.today } } };
+  const [focusSessions, quests] = await Promise.all([
+    prisma.focusStudySession.count({where:{userId,dateKey:dateKey(now,timezone),focusedSeconds:{gte:60}}}),
+    ensureDailyQuests(userId,timezone,now),
+  ]);
+  const unreadNotifications = await prisma.notification.count({ where: { userId, readAt: null } });
+  const recapSession = await prisma.focusStudySession.findFirst({ where: { userId, endedAt: { not: null }, focusedSeconds: { gte: 60 }, recapDismissed: false },include:{planItem:{select:{title:true}},language:{select:{name:true}},group:{select:{name:true}},lesson:{select:{title:true}}}, orderBy: { endedAt: "desc" } });
+  let recap = null;
+  if (recapSession?.endedAt) {
+    const [attempts, lessons] = await Promise.all([
+      prisma.vocabularyReviewAttempt.findMany({ where: { userId, createdAt: { gte: recapSession.startedAt, lte: recapSession.endedAt } }, select: { vocabularyEntryId: true, correct: true, usedHint: true } }),
+      prisma.lessonProgress.count({ where: { userId, completedAt: { gte: recapSession.startedAt, lte: recapSession.endedAt } } }),
+    ]);
+    const wordIds=[...new Set(attempts.map((item)=>item.vocabularyEntryId))];
+    const previouslyReviewed=wordIds.length?await prisma.vocabularyReviewAttempt.findMany({where:{userId,vocabularyEntryId:{in:wordIds},createdAt:{lt:recapSession.startedAt}},select:{vocabularyEntryId:true},distinct:["vocabularyEntryId"]}):[];
+    recap = { ...recapSession, contextTitle:recapSession.planItem?.title??recapSession.lesson?.title??recapSession.group?.name??recapSession.language?.name??"Open focus", reviewedWords: wordIds.length, newWords: wordIds.length-previouslyReviewed.length, accuracy: attempts.length ? Math.round(attempts.filter((item) => item.correct).length / attempts.length * 100) : 0, weakCleared: new Set(attempts.filter((item) => item.correct && !item.usedHint).map(item=>item.vocabularyEntryId)).size, lessons };
+  }
+  return { serverNow: now, personal: { ...personal, remainingSeconds: displayedRemaining(personal, now) }, group, proposal, notice, recap, unreadNotifications, quests, daily: { ...daily, today: { ...daily.today, focusSessions } } };
 }
 
 export async function POST(request: Request) {
@@ -87,7 +108,16 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Body;
     const timezone = safeTimezone(body.timezone);
     const action = body.action ?? "snapshot";
-    if (action === "personal") {
+    if (action === "prepare") {
+      const joined=await prisma.groupTimerParticipant.findFirst({where:{userId,lastSeenAt:{gt:new Date(Date.now()-ACTIVE_WINDOW_MS)}}});
+      if(joined)throw new Error("Leave the group timer before starting a plan item.");
+      const item=await prisma.studyPlanItem.findFirst({where:{id:String(body.planItemId??""),plan:{userId}},include:{plan:true}});
+      if(!item)throw new Error("Plan item not found.");
+      const metadata=item.metadata&&typeof item.metadata==="object"&&!Array.isArray(item.metadata)?item.metadata as Record<string,unknown>:{};const languageId=body.languageId||String(metadata.languageId??"")||item.plan.languageId||null;const contextGroupId=String(metadata.groupId??"")||null;
+      if(languageId&&!await prisma.language.findFirst({where:{id:languageId,OR:[{users:{some:{userId}}},{vocabulary:{some:{group:{members:{some:{userId}}}}}}]}}))throw new Error("That language is no longer available.");
+      const minutes=Math.max(1,Math.min(240,Number(body.plannedMinutes)||item.estimatedMinutes));
+      await prisma.personalTimerState.upsert({where:{userId},create:{userId,focusMinutes:minutes,remainingSeconds:minutes*60,activePlanItemId:item.id,activeLanguageId:languageId,activeGroupId:contextGroupId,activeLessonId:body.lessonId||null,activeDestination:String(body.destination||item.href||"/app/dashboard"),plannedMinutes:minutes},update:{phase:"FOCUS",isRunning:false,focusMinutes:minutes,remainingSeconds:minutes*60,phaseStartedAt:null,endsAt:null,creditedUntil:null,focusSessionId:null,activePlanItemId:item.id,activeLanguageId:languageId,activeGroupId:contextGroupId,activeLessonId:body.lessonId||null,activeDestination:String(body.destination||item.href||"/app/dashboard"),plannedMinutes:minutes,version:{increment:1}}});
+    } else if (action === "personal") {
       const timer = await reconcilePersonal(userId, timezone);
       const now = new Date();
       const joined = await prisma.groupTimerParticipant.findFirst({ where: { userId, lastSeenAt: { gt: new Date(now.getTime() - ACTIVE_WINDOW_MS) } } });
@@ -96,19 +126,21 @@ export async function POST(request: Request) {
       if (command === "start") {
         const seconds = displayedRemaining(timer, now) || secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes);
         const focusSessionId = timer.phase === "FOCUS" ? timer.focusSessionId ?? crypto.randomUUID() : null;
-        if (focusSessionId && !timer.focusSessionId) await incrementFocusSession(userId, now, timezone);
+        if (focusSessionId && !timer.focusSessionId) await incrementFocusSession(userId, now, timezone, focusSessionId,{planItemId:timer.activePlanItemId,languageId:timer.activeLanguageId,groupId:timer.activeGroupId,lessonId:timer.activeLessonId,destination:timer.activeDestination});
         await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: true, remainingSeconds: seconds, phaseStartedAt: now, endsAt: new Date(now.getTime() + seconds * 1000), creditedUntil: now, focusSessionId, version: { increment: 1 } } });
       } else if (command === "pause") {
         await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: displayedRemaining(timer, now), phaseStartedAt: null, endsAt: null, version: { increment: 1 } } });
       } else if (command === "reset") {
-        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes), phaseStartedAt: null, endsAt: null, creditedUntil: null, focusSessionId: null, version: { increment: 1 } } });
+        if (timer.phase === "FOCUS") await finalizeFocusSession(userId, timer.focusSessionId, "RESET", now);
+        await prisma.personalTimerState.update({ where: { userId }, data: { isRunning: false, remainingSeconds: secondsForPhase(timer.phase, timer.focusMinutes, timer.breakMinutes), phaseStartedAt: null, endsAt: null, creditedUntil: null, focusSessionId: null, activePlanItemId:null,activeLanguageId:null,activeGroupId:null,activeLessonId:null,activeDestination:null,plannedMinutes:null,version: { increment: 1 } } });
       } else if (command === "skip") {
+        if (timer.phase === "FOCUS") await finalizeFocusSession(userId, timer.focusSessionId, "SKIPPED", now);
         const phase = oppositePhase(timer.phase);
         const seconds = secondsForPhase(phase, timer.focusMinutes, timer.breakMinutes);
         const running = timer.autoStart;
         const focusSessionId = phase === "FOCUS" && running ? crypto.randomUUID() : null;
-        if (focusSessionId) await incrementFocusSession(userId, now, timezone);
-        await prisma.personalTimerState.update({ where: { userId }, data: { phase, isRunning: running, remainingSeconds: seconds, phaseStartedAt: running ? now : null, endsAt: running ? new Date(now.getTime() + seconds * 1000) : null, creditedUntil: running ? now : null, focusSessionId, version: { increment: 1 } } });
+        if (focusSessionId) await incrementFocusSession(userId, now, timezone, focusSessionId);
+        await prisma.personalTimerState.update({ where: { userId }, data: { phase, isRunning: running, remainingSeconds: seconds, phaseStartedAt: running ? now : null, endsAt: running ? new Date(now.getTime() + seconds * 1000) : null, creditedUntil: running ? now : null, focusSessionId,activePlanItemId:null,activeLanguageId:null,activeGroupId:null,activeLessonId:null,activeDestination:null,plannedMinutes:null,version: { increment: 1 } } });
       } else if (command === "settings") {
         const focusMinutes = Math.max(1, Math.min(240, Number(body.focusMinutes) || 25));
         const breakMinutes = Math.max(1, Math.min(60, Number(body.breakMinutes) || 5));
@@ -165,6 +197,11 @@ export async function POST(request: Request) {
     } else if (action === "completion_seen") {
       const context = await dailyContext(userId, timezone);
       await prisma.dailyStudyRecord.update({ where: { id: context.today.id }, data: { completionShown: true } });
+    } else if (action === "save_recap") {
+      const sessionId = String(body.sessionId ?? "");
+      await prisma.focusStudySession.updateMany({ where: { id: sessionId, userId }, data: { recapNote: String(body.note ?? "").trim().slice(0, 1000) || null, effort: Math.max(1, Math.min(5, Number(body.effort) || 3)), recapDismissed: true } });
+    } else if (action === "dismiss_recap") {
+      await prisma.focusStudySession.updateMany({ where: { id: String(body.sessionId ?? ""), userId }, data: { recapDismissed: true } });
     }
     return NextResponse.json(await serialize(userId, timezone));
   } catch (error) {

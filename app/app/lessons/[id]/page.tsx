@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { recordQuestEvent, userTimezone } from "@/lib/learning-loop";
 
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const user = (await auth())!.user;
@@ -20,7 +21,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
   async function complete() {
     "use server";
 
-    await prisma.lessonProgress.upsert({
+    const progress=await prisma.lessonProgress.upsert({
       where: {
         userId_lessonId: {
           userId: user.id,
@@ -38,6 +39,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
         completedAt: new Date(),
       },
     });
+    await recordQuestEvent(user.id,await userTimezone(user.id),{key:`lesson:${progress.id}`,type:"LESSON",at:progress.completedAt??new Date(),metadata:{lessonId:lesson!.id}});
     revalidatePath(`/app/courses/${lesson!.unit.course.slug}`);
     revalidatePath(`/app/lessons/${lesson!.id}`);
   }

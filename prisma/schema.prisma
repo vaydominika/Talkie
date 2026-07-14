@@ -1,384 +1,612 @@
 generator client {
- provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
+
 datasource db {
- provider = "postgresql"
- url = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
 enum Role {
- STUDENT
- CONTENT_EDITOR
- ADMIN
+  STUDENT
+  CONTENT_EDITOR
+  ADMIN
 }
+
 enum ContentStatus {
- DRAFT
- PUBLISHED
- ARCHIVED
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
+
 enum CardState {
- NEW
- LEARNING
- REVIEW
- RELEARNING
- SUSPENDED
- BURIED
+  NEW
+  LEARNING
+  REVIEW
+  RELEARNING
+  SUSPENDED
+  BURIED
 }
+
 enum TimerPhase {
- FOCUS
- BREAK
+  FOCUS
+  BREAK
 }
+
 enum TimerProposalKind {
- START
- PAUSE
- RESET
- SKIP
- SETTINGS
+  START
+  PAUSE
+  RESET
+  SKIP
+  SETTINGS
 }
+
 enum TimerProposalStatus {
- PENDING
- APPROVED
- DECLINED
- EXPIRED
+  PENDING
+  APPROVED
+  DECLINED
+  EXPIRED
 }
+
+enum ReviewRating {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+enum FocusSessionResult {
+  COMPLETED
+  RESET
+  SKIPPED
+}
+
+enum StudyPlanItemType {
+  DUE_REVIEW
+  WEAK_WORDS
+  LESSON
+  LISTENING
+  FREE_FOCUS
+}
+
+enum StudyPlanItemStatus {
+  PENDING
+  COMPLETED
+  REMOVED
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
+enum NotificationType {
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  COMMITMENT_REQUEST
+  COMMITMENT_ACCEPTED
+  COMMITMENT_COMPLETE
+  NUDGE
+  GROUP_INVITATION
+  GROUP_TIMER_INVITATION
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+  EXPIRED
+}
+
+enum CommitmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  DECLINED
+  CANCELED
+}
+
+enum QuestType {
+  DUE_REVIEWS
+  WEAK_WORDS
+  LESSON_PROGRESS
+  LISTENING_ROUNDS
+  ACCURACY
+  FOCUS_MINUTES
+}
+
 enum LanguageTabType {
- LEARNING
- FLASHCARDS
- VOCABULARY
- GRAMMAR
- CUSTOM
+  LEARNING
+  FLASHCARDS
+  VOCABULARY
+  GRAMMAR
+  CUSTOM
 }
+
 enum TestQuestionType {
- MULTIPLE_CHOICE
- SHORT_ANSWER
- MATCH_PAIRS
- WORD_ORDER
- FILL_BLANK
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+  MATCH_PAIRS
+  WORD_ORDER
+  FILL_BLANK
 }
+
 model User {
- id String @id @default(cuid())
- name String?
- email String @unique
- emailVerified DateTime?
- image String?
- passwordHash String?
- role Role @default(STUDENT)
- accounts Account[]
- profile UserProfile?
- preferences UserPreference?
- lessonProgress LessonProgress[]
- reviewStates FlashcardReviewState[]
- practicePreferences VocabularyPracticePreference[]
- vocabularyAttempts VocabularyReviewAttempt[]
- testAttempts LessonTestAttempt[]
- groupMemberships GroupMember[]
- languages        UserLanguage[]
- vocabulary       VocabularyEntry[]
- dailyStudyRecords DailyStudyRecord[]
- personalTimer PersonalTimerState?
- groupTimerParticipations GroupTimerParticipant[]
- groupTimerProposals GroupTimerProposal[] @relation("TimerProposalAuthor")
- groupTimerVotes GroupTimerVote[]
+  id                       String                         @id @default(cuid())
+  name                     String?
+  email                    String                         @unique
+  emailVerified            DateTime?
+  image                    String?
+  passwordHash             String?
+  role                     Role                           @default(STUDENT)
+  username                 String?                        @unique
+  friendCode               String?                        @unique
+  friendDiscoverable       Boolean                        @default(true)
+  friendActivityVisible    Boolean                        @default(true)
+  friendNudgesEnabled      Boolean                        @default(true)
+  accounts                 Account[]
+  profile                  UserProfile?
+  preferences              UserPreference?
+  lessonProgress           LessonProgress[]
+  reviewStates             FlashcardReviewState[]
+  practicePreferences      VocabularyPracticePreference[]
+  vocabularyAttempts       VocabularyReviewAttempt[]
+  testAttempts             LessonTestAttempt[]
+  groupMemberships         GroupMember[]
+  languages                UserLanguage[]
+  vocabulary               VocabularyEntry[]
+  dailyStudyRecords        DailyStudyRecord[]
+  personalTimer            PersonalTimerState?
+  groupTimerParticipations GroupTimerParticipant[]
+  groupTimerProposals      GroupTimerProposal[]           @relation("TimerProposalAuthor")
+  groupTimerVotes          GroupTimerVote[]
+  focusStudySessions       FocusStudySession[]
+  studyPlans               StudyPlan[]
+  sentFriendRequests       FriendRequest[]                @relation("FriendRequestSender")
+  receivedFriendRequests   FriendRequest[]                @relation("FriendRequestRecipient")
+  friendConnectionsA       FriendConnection[]             @relation("FriendConnectionA")
+  friendConnectionsB       FriendConnection[]             @relation("FriendConnectionB")
+  blocksSent               UserBlock[]                    @relation("Blocker")
+  blocksReceived           UserBlock[]                    @relation("Blocked")
+  notifications            Notification[]                 @relation("NotificationOwner")
+  notificationActions      Notification[]                 @relation("NotificationActor")
+  commitmentsA             FriendCommitment[]             @relation("CommitmentA")
+  commitmentsB             FriendCommitment[]             @relation("CommitmentB")
+  commitmentsRequested     FriendCommitment[]             @relation("CommitmentRequester")
+  nudgesSent               FriendNudge[]                  @relation("NudgeSender")
+  nudgesReceived           FriendNudge[]                  @relation("NudgeRecipient")
+  groupInvitationsSent     GroupInvitation[]              @relation("GroupInvitationSender")
+  groupInvitationsReceived GroupInvitation[]              @relation("GroupInvitationRecipient")
+  timerInvitationsSent     GroupTimerInvitation[]         @relation("TimerInvitationSender")
+  timerInvitationsReceived GroupTimerInvitation[]         @relation("TimerInvitationRecipient")
+  listeningActivities      ListeningActivity[]
+  dailyQuests              DailyQuest[]
+  dailyQuestSets           DailyQuestSet[]
+  questEvents              QuestEvent[]
+  weeklyReflections        WeeklyReflection[]
+  weeklyGoalSchedules      WeeklyGoalSchedule[]
 }
+
 model Account {
- id String @id @default(cuid())
- userId String
- type String
- provider String
- providerAccountId String
- refresh_token String? @db.Text
- access_token String? @db.Text
- expires_at Int?
- token_type String?
- scope String?
- id_token String? @db.Text
- session_state String?
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@unique([provider,providerAccountId])
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
+
 model UserProfile {
- id String @id @default(cuid())
- userId String @unique
- dailyMinutes Int @default(15)
- timezone String @default("UTC")
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  id           String @id @default(cuid())
+  userId       String @unique
+  dailyMinutes Int    @default(15)
+  timezone     String @default("UTC")
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DailyStudyRecord {
- id String @id @default(cuid())
- userId String
- dateKey String
- timezone String
- focusedSeconds Int @default(0)
- focusSessions Int @default(0)
- targetMinutes Int
- carryOverMinutes Int @default(0)
- carryPromptResponse String?
- completionShown Boolean @default(false)
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@unique([userId,dateKey])
- @@index([userId,dateKey])
+  id                  String    @id @default(cuid())
+  userId              String
+  dateKey             String
+  timezone            String
+  focusedSeconds      Int       @default(0)
+  focusSessions       Int       @default(0)
+  targetMinutes       Int
+  carryOverMinutes    Int       @default(0)
+  carryPromptResponse String?
+  completionShown     Boolean   @default(false)
+  questSetCompletedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([userId, dateKey])
+}
+
+model FocusStudySession {
+  id                  String              @id @default(cuid())
+  sessionKey          String
+  userId              String
+  dateKey             String
+  timezone            String
+  startedAt           DateTime
+  endedAt             DateTime?
+  focusedSeconds      Int                 @default(0)
+  result              FocusSessionResult?
+  languageId          String?
+  groupId             String?
+  planItemId          String?
+  lessonId            String?
+  destination         String?
+  recapNote           String?
+  effort              Int?
+  recapDismissed      Boolean             @default(false)
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language            Language?           @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  group               Group?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  planItem            StudyPlanItem?      @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+  lesson              Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  listeningActivities ListeningActivity[]
+
+  @@unique([userId, sessionKey])
+  @@index([userId, dateKey, startedAt])
+}
+
+model StudyPlan {
+  id              String          @id @default(cuid())
+  userId          String
+  dateKey         String
+  timezone        String
+  durationMinutes Int
+  languageId      String?
+  generatedAt     DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language        Language?       @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  items           StudyPlanItem[]
+
+  @@unique([userId, dateKey])
+}
+
+model StudyPlanItem {
+  id                  String              @id @default(cuid())
+  planId              String
+  type                StudyPlanItemType
+  title               String
+  description         String?
+  href                String?
+  referenceId         String?
+  estimatedMinutes    Int
+  position            Int
+  status              StudyPlanItemStatus @default(PENDING)
+  metadata            Json?
+  plan                StudyPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  focusSessions       FocusStudySession[]
+  listeningActivities ListeningActivity[]
+
+  @@unique([planId, position])
 }
 
 model PersonalTimerState {
- id String @id @default(cuid())
- userId String @unique
- focusMinutes Int @default(25)
- breakMinutes Int @default(5)
- autoStart Boolean @default(false)
- phase TimerPhase @default(FOCUS)
- isRunning Boolean @default(false)
- remainingSeconds Int @default(1500)
- phaseStartedAt DateTime?
- endsAt DateTime?
- creditedUntil DateTime?
- focusSessionId String?
- version Int @default(0)
- updatedAt DateTime @updatedAt
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  id                String     @id @default(cuid())
+  userId            String     @unique
+  focusMinutes      Int        @default(25)
+  breakMinutes      Int        @default(5)
+  autoStart         Boolean    @default(false)
+  phase             TimerPhase @default(FOCUS)
+  isRunning         Boolean    @default(false)
+  remainingSeconds  Int        @default(1500)
+  phaseStartedAt    DateTime?
+  endsAt            DateTime?
+  creditedUntil     DateTime?
+  focusSessionId    String?
+  activePlanItemId  String?
+  activeLanguageId  String?
+  activeGroupId     String?
+  activeLessonId    String?
+  activeDestination String?
+  plannedMinutes    Int?
+  version           Int        @default(0)
+  updatedAt         DateTime   @updatedAt
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 model UserPreference {
- id String @id @default(cuid())
- userId String @unique
- theme String @default("system")
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  theme  String @default("system")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 model Language {
- id String @id @default(cuid())
- code String @unique
- name String
- nativeName String
- speechProvider String?
- speechLocale String?
- speechVoiceName String?
- sidebarVisible Boolean @default(true)
- sidebarPosition Int @default(0)
- courses Course[]
- vocabulary VocabularyEntry[]
- grammar GrammarPoint[]
- tabs LanguageTab[]
- media MediaAsset[]
- users UserLanguage[]
- groups GroupLanguage[]
- vocabularyAttempts VocabularyReviewAttempt[]
+  id                  String                    @id @default(cuid())
+  code                String                    @unique
+  name                String
+  nativeName          String
+  speechProvider      String?
+  speechLocale        String?
+  speechVoiceName     String?
+  sidebarVisible      Boolean                   @default(true)
+  sidebarPosition     Int                       @default(0)
+  courses             Course[]
+  vocabulary          VocabularyEntry[]
+  grammar             GrammarPoint[]
+  tabs                LanguageTab[]
+  media               MediaAsset[]
+  users               UserLanguage[]
+  groups              GroupLanguage[]
+  vocabularyAttempts  VocabularyReviewAttempt[]
+  focusStudySessions  FocusStudySession[]
+  studyPlans          StudyPlan[]
+  listeningActivities ListeningActivity[]
 }
+
 model LanguageTab {
- id String @id @default(cuid())
- languageId String
- title String
- slug String
- type LanguageTabType @default(CUSTOM)
- position Int @default(0)
- status ContentStatus @default(DRAFT)
- content Json?
- language Language @relation(fields:[languageId],references:[id],onDelete:Cascade)
- @@unique([languageId,slug])
- @@unique([languageId,position])
-}
-model MediaAsset {
- id String @id @default(cuid())
- languageId String?
- url String
- altText String?
- kind String @default("IMAGE")
- targetKey String?
- metadata Json?
- createdAt DateTime @default(now())
- language Language? @relation(fields:[languageId],references:[id],onDelete:SetNull)
- @@index([kind,targetKey])
-}
-model ProficiencyLevel {
- id String @id @default(cuid())
- code String @unique
- name String
- rank Int
- courses Course[]
- vocabulary VocabularyEntry[]
- grammar GrammarPoint[]
-}
-model Course {
- id String @id @default(cuid())
- slug String @unique
- title String
- description String
- languageId String
- levelId String
- status ContentStatus @default(DRAFT)
- language Language @relation(fields:[languageId],references:[id])
- level ProficiencyLevel @relation(fields:[levelId],references:[id])
- units CourseUnit[]
-}
-model CourseUnit {
- id String @id @default(cuid())
- courseId String
- title String
- position Int
- course Course @relation(fields:[courseId],references:[id],onDelete:Cascade)
- lessons Lesson[]
- @@unique([courseId,position])
-}
-model Lesson {
- id String @id @default(cuid())
- unitId String
- title String
- position Int
- unit CourseUnit @relation(fields:[unitId],references:[id],onDelete:Cascade)
- blocks LessonBlock[]
- progress LessonProgress[]
- test LessonTest?
- @@unique([unitId,position])
-}
-model LessonBlock {
- id String @id @default(cuid())
- lessonId String
- position Int
- title String?
- content String
- lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
- @@unique([lessonId,position])
-}
-model LessonProgress {
- id String @id @default(cuid())
- userId String
- lessonId String
- completedBlocks Int @default(0)
- completedAt DateTime?
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
- @@unique([userId,lessonId])
-}
-model VocabularyEntry {
-  id String @id @default(cuid())
+  id         String          @id @default(cuid())
   languageId String
-  levelId String?
-  displayForm String
-  definition String
-  pronunciation String?
-  partOfSpeech String?
-  sourceMetadata Json?
-  language Language @relation(fields:[languageId],references:[id])
-  level ProficiencyLevel? @relation(fields:[levelId],references:[id])
-  translations VocabularyTranslation[]
-  japanese JapaneseVocabularyMetadata?
-  german GermanVocabularyMetadata?
-  groupId String?
-  group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
-  userId String?
-  user User? @relation(fields:[userId],references:[id],onDelete:Cascade)
-  reviewAttempts VocabularyReviewAttempt[]
+  title      String
+  slug       String
+  type       LanguageTabType @default(CUSTOM)
+  position   Int             @default(0)
+  status     ContentStatus   @default(DRAFT)
+  content    Json?
+  language   Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([languageId, slug])
+  @@unique([languageId, position])
+}
+
+model MediaAsset {
+  id         String    @id @default(cuid())
+  languageId String?
+  url        String
+  altText    String?
+  kind       String    @default("IMAGE")
+  targetKey  String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  language   Language? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+
+  @@index([kind, targetKey])
+}
+
+model ProficiencyLevel {
+  id         String            @id @default(cuid())
+  code       String            @unique
+  name       String
+  rank       Int
+  courses    Course[]
+  vocabulary VocabularyEntry[]
+  grammar    GrammarPoint[]
+}
+
+model Course {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  title       String
+  description String
+  languageId  String
+  levelId     String
+  status      ContentStatus    @default(DRAFT)
+  language    Language         @relation(fields: [languageId], references: [id])
+  level       ProficiencyLevel @relation(fields: [levelId], references: [id])
+  units       CourseUnit[]
+}
+
+model CourseUnit {
+  id       String   @id @default(cuid())
+  courseId String
+  title    String
+  position Int
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+
+  @@unique([courseId, position])
+}
+
+model Lesson {
+  id                 String              @id @default(cuid())
+  unitId             String
+  title              String
+  position           Int
+  unit               CourseUnit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  blocks             LessonBlock[]
+  progress           LessonProgress[]
+  test               LessonTest?
+  focusStudySessions FocusStudySession[]
+
+  @@unique([unitId, position])
+}
+
+model LessonBlock {
+  id       String  @id @default(cuid())
+  lessonId String
+  position Int
+  title    String?
+  content  String
+  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, position])
+}
+
+model LessonProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  lessonId        String
+  completedBlocks Int       @default(0)
+  completedAt     DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}
+
+model VocabularyEntry {
+  id                  String                         @id @default(cuid())
+  languageId          String
+  levelId             String?
+  displayForm         String
+  definition          String
+  pronunciation       String?
+  partOfSpeech        String?
+  sourceMetadata      Json?
+  language            Language                       @relation(fields: [languageId], references: [id])
+  level               ProficiencyLevel?              @relation(fields: [levelId], references: [id])
+  translations        VocabularyTranslation[]
+  japanese            JapaneseVocabularyMetadata?
+  german              GermanVocabularyMetadata?
+  groupId             String?
+  group               Group?                         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId              String?
+  user                User?                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewAttempts      VocabularyReviewAttempt[]
   practicePreferences VocabularyPracticePreference[]
+  reviewStates        FlashcardReviewState[]
 }
+
 model VocabularyTranslation {
- id String @id @default(cuid())
- entryId String
- text String
- entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+  id      String          @id @default(cuid())
+  entryId String
+  text    String
+  entry   VocabularyEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
+
 model JapaneseVocabularyMetadata {
- entryId String @id
- kana String
- romaji String?
- jlpt String?
- entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+  entryId String          @id
+  kana    String
+  romaji  String?
+  jlpt    String?
+  entry   VocabularyEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
+
 model GermanVocabularyMetadata {
- entryId String @id
- article String?
- plural String?
- entry VocabularyEntry @relation(fields:[entryId],references:[id],onDelete:Cascade)
+  entryId String          @id
+  article String?
+  plural  String?
+  entry   VocabularyEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
+
 model GrammarPoint {
- id String @id @default(cuid())
- languageId String
- levelId String?
- title String
- summary String
- explanation String
- richContent Json?
- sourceMetadata Json?
- status ContentStatus @default(PUBLISHED)
- language Language @relation(fields:[languageId],references:[id])
- level ProficiencyLevel? @relation(fields:[levelId],references:[id])
+  id             String            @id @default(cuid())
+  languageId     String
+  levelId        String?
+  title          String
+  summary        String
+  explanation    String
+  richContent    Json?
+  sourceMetadata Json?
+  status         ContentStatus     @default(PUBLISHED)
+  language       Language          @relation(fields: [languageId], references: [id])
+  level          ProficiencyLevel? @relation(fields: [levelId], references: [id])
 }
+
 model LessonTest {
- id String @id @default(cuid())
- lessonId String @unique
- title String
- requiredScore Int @default(80)
- unlockNextLesson Boolean @default(false)
- status ContentStatus @default(DRAFT)
- lesson Lesson @relation(fields:[lessonId],references:[id],onDelete:Cascade)
- questions LessonTestQuestion[]
- attempts LessonTestAttempt[]
+  id               String               @id @default(cuid())
+  lessonId         String               @unique
+  title            String
+  requiredScore    Int                  @default(80)
+  unlockNextLesson Boolean              @default(false)
+  status           ContentStatus        @default(DRAFT)
+  lesson           Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions        LessonTestQuestion[]
+  attempts         LessonTestAttempt[]
 }
+
 model LessonTestQuestion {
- id String @id @default(cuid())
- testId String
- type TestQuestionType
- prompt String
- explanation String?
- answer Json
- options Json?
- position Int
- test LessonTest @relation(fields:[testId],references:[id],onDelete:Cascade)
- @@unique([testId,position])
+  id          String           @id @default(cuid())
+  testId      String
+  type        TestQuestionType
+  prompt      String
+  explanation String?
+  answer      Json
+  options     Json?
+  position    Int
+  test        LessonTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, position])
 }
+
 model LessonTestAttempt {
- id String @id @default(cuid())
- testId String
- userId String
- score Int
- passed Boolean
- answers Json
- createdAt DateTime @default(now())
- test LessonTest @relation(fields:[testId],references:[id],onDelete:Cascade)
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@index([userId,testId])
+  id        String     @id @default(cuid())
+  testId    String
+  userId    String
+  score     Int
+  passed    Boolean
+  answers   Json
+  createdAt DateTime   @default(now())
+  test      LessonTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, testId])
 }
+
 model FlashcardReviewState {
- id String @id @default(cuid())
- userId String
- state CardState @default(NEW)
- dueAt DateTime @default(now())
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@index([userId,dueAt])
+  id                String          @id @default(cuid())
+  userId            String
+  vocabularyEntryId String
+  state             CardState       @default(NEW)
+  dueAt             DateTime        @default(now())
+  intervalDays      Int             @default(0)
+  easeFactor        Float           @default(2.5)
+  learningStep      Int             @default(0)
+  lapses            Int             @default(0)
+  successfulReviews Int             @default(0)
+  totalReviews      Int             @default(0)
+  lastRating        ReviewRating?
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabularyEntry   VocabularyEntry @relation(fields: [vocabularyEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vocabularyEntryId])
+  @@index([userId, dueAt])
 }
 
 model VocabularyReviewAttempt {
-  id String @id @default(cuid())
-  userId String
+  id                String          @id @default(cuid())
+  userId            String
   vocabularyEntryId String
-  languageId String
-  groupId String?
-  displayForm String
-  prompt String
-  expected String
-  answer String
-  direction String
-  correct Boolean
-  usedHint Boolean @default(false)
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
-  vocabularyEntry VocabularyEntry @relation(fields:[vocabularyEntryId],references:[id],onDelete:Cascade)
-  language Language @relation(fields:[languageId],references:[id],onDelete:Cascade)
-  group Group? @relation(fields:[groupId],references:[id],onDelete:Cascade)
+  languageId        String
+  groupId           String?
+  displayForm       String
+  prompt            String
+  expected          String
+  answer            String
+  direction         String
+  correct           Boolean
+  usedHint          Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabularyEntry   VocabularyEntry @relation(fields: [vocabularyEntryId], references: [id], onDelete: Cascade)
+  language          Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  group             Group?          @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  @@index([userId,languageId,createdAt])
-  @@index([userId,groupId,createdAt])
+  @@index([userId, languageId, createdAt])
+  @@index([userId, groupId, createdAt])
 }
 
 model VocabularyPracticePreference {
-  id String @id @default(cuid())
-  userId String
+  id                String          @id @default(cuid())
+  userId            String
   vocabularyEntryId String
-  enabled Boolean @default(true)
-  updatedAt DateTime @updatedAt
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
-  vocabularyEntry VocabularyEntry @relation(fields:[vocabularyEntryId],references:[id],onDelete:Cascade)
+  enabled           Boolean         @default(true)
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabularyEntry   VocabularyEntry @relation(fields: [vocabularyEntryId], references: [id], onDelete: Cascade)
 
-  @@unique([userId,vocabularyEntryId])
-  @@index([userId,enabled])
+  @@unique([userId, vocabularyEntryId])
+  @@index([userId, enabled])
 }
 
 enum GroupRole {
@@ -388,79 +616,307 @@ enum GroupRole {
 }
 
 model Group {
-  id                 String            @id @default(cuid())
+  id                 String                    @id @default(cuid())
   name               String
   description        String?
-  inviteCode         String            @unique
-  allowMemberImports Boolean           @default(true)
-  createdAt          DateTime          @default(now())
+  inviteCode         String                    @unique
+  allowMemberImports Boolean                   @default(true)
+  createdAt          DateTime                  @default(now())
   members            GroupMember[]
   vocabulary         VocabularyEntry[]
   languages          GroupLanguage[]
   vocabularyAttempts VocabularyReviewAttempt[]
-  timerRoom GroupTimerRoom?
+  timerRoom          GroupTimerRoom?
+  focusStudySessions FocusStudySession[]
+  invitations        GroupInvitation[]
+}
+
+model FriendRequest {
+  id          String              @id @default(cuid())
+  senderId    String
+  recipientId String
+  pairKey     String              @unique
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  resolvedAt  DateTime?
+  sender      User                @relation("FriendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User                @relation("FriendRequestRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, recipientId])
+  @@index([recipientId, status])
+}
+
+model FriendConnection {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+  userA     User     @relation("FriendConnectionA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User     @relation("FriendConnectionB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String?
+  type      NotificationType
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation("NotificationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model FriendCommitment {
+  id               String           @id @default(cuid())
+  userAId          String
+  userBId          String
+  requestedById    String
+  targetDaysA      Int
+  targetDaysB      Int
+  weekStart        String
+  status           CommitmentStatus @default(PENDING)
+  acceptedAt       DateTime?
+  resolvedAt       DateTime?
+  jointlySucceeded Boolean?
+  streakWeeks      Int              @default(0)
+  createdAt        DateTime         @default(now())
+  userA            User             @relation("CommitmentA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB            User             @relation("CommitmentB", fields: [userBId], references: [id], onDelete: Cascade)
+  requestedBy      User             @relation("CommitmentRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId, weekStart])
+  @@index([userAId, status])
+  @@index([userBId, status])
+}
+
+model FriendNudge {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+  dateKey     String
+  createdAt   DateTime @default(now())
+  sender      User     @relation("NudgeSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User     @relation("NudgeRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, recipientId, dateKey])
+  @@index([recipientId, createdAt])
+}
+
+model GroupInvitation {
+  id         String           @id @default(cuid())
+  inviterId  String
+  inviteeId  String
+  groupId    String
+  dedupeKey  String?          @unique
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  inviter    User             @relation("GroupInvitationSender", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee    User             @relation("GroupInvitationRecipient", fields: [inviteeId], references: [id], onDelete: Cascade)
+  group      Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([inviteeId, status, expiresAt])
+  @@index([inviterId, status])
+}
+
+model GroupTimerInvitation {
+  id         String           @id @default(cuid())
+  inviterId  String
+  inviteeId  String
+  roomId     String
+  dedupeKey  String?          @unique
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  inviter    User             @relation("TimerInvitationSender", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee    User             @relation("TimerInvitationRecipient", fields: [inviteeId], references: [id], onDelete: Cascade)
+  room       GroupTimerRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([inviteeId, status, expiresAt])
+  @@index([inviterId, status])
+}
+
+model ListeningActivity {
+  id             String             @id @default(cuid())
+  userId         String
+  languageId     String
+  dateKey        String
+  timezone       String
+  sourceType     String
+  sourceText     String
+  completionKey  String
+  planItemId     String?
+  focusSessionId String?
+  completedAt    DateTime           @default(now())
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language       Language           @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  planItem       StudyPlanItem?     @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+  focusSession   FocusStudySession? @relation(fields: [focusSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, completionKey])
+  @@index([userId, dateKey])
+}
+
+model DailyQuest {
+  id          String        @id @default(cuid())
+  userId      String
+  questSetId  String
+  dateKey     String
+  timezone    String
+  position    Int
+  type        QuestType
+  title       String
+  target      Int
+  progress    Int           @default(0)
+  completedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questSet    DailyQuestSet @relation(fields: [questSetId], references: [id], onDelete: Cascade)
+
+  @@unique([questSetId, position])
+}
+
+model DailyQuestSet {
+  id          String       @id @default(cuid())
+  userId      String
+  dateKey     String
+  timezone    String
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quests      DailyQuest[]
+  events      QuestEvent[]
+
+  @@unique([userId, dateKey])
+}
+
+model QuestEvent {
+  id         String        @id @default(cuid())
+  userId     String
+  questSetId String
+  eventKey   String
+  type       String
+  amount     Int           @default(1)
+  occurredAt DateTime
+  metadata   Json?
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questSet   DailyQuestSet @relation(fields: [questSetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventKey])
+  @@index([questSetId, occurredAt])
+}
+
+model WeeklyReflection {
+  id                    String    @id @default(cuid())
+  userId                String
+  weekKey               String
+  timezone              String
+  metrics               Json
+  suggestedDailyMinutes Int
+  acceptedDailyMinutes  Int?
+  acceptedAt            DateTime?
+  effectiveMonday       String?
+  createdAt             DateTime  @default(now())
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekKey])
+}
+
+model WeeklyGoalSchedule {
+  id              String   @id @default(cuid())
+  userId          String
+  effectiveMonday String
+  dailyMinutes    Int
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, effectiveMonday])
 }
 
 model GroupTimerRoom {
- id String @id @default(cuid())
- groupId String @unique
- focusMinutes Int @default(25)
- breakMinutes Int @default(5)
- autoStart Boolean @default(false)
- phase TimerPhase @default(FOCUS)
- isRunning Boolean @default(false)
- remainingSeconds Int @default(1500)
- phaseStartedAt DateTime?
- endsAt DateTime?
- focusSessionId String?
- version Int @default(0)
- updatedAt DateTime @updatedAt
- group Group @relation(fields:[groupId],references:[id],onDelete:Cascade)
- participants GroupTimerParticipant[]
- proposals GroupTimerProposal[]
+  id               String                  @id @default(cuid())
+  groupId          String                  @unique
+  focusMinutes     Int                     @default(25)
+  breakMinutes     Int                     @default(5)
+  autoStart        Boolean                 @default(false)
+  phase            TimerPhase              @default(FOCUS)
+  isRunning        Boolean                 @default(false)
+  remainingSeconds Int                     @default(1500)
+  phaseStartedAt   DateTime?
+  endsAt           DateTime?
+  focusSessionId   String?
+  version          Int                     @default(0)
+  updatedAt        DateTime                @updatedAt
+  group            Group                   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  participants     GroupTimerParticipant[]
+  proposals        GroupTimerProposal[]
+  invitations      GroupTimerInvitation[]
 }
 
 model GroupTimerParticipant {
- id String @id @default(cuid())
- roomId String
- userId String
- joinedAt DateTime @default(now())
- lastSeenAt DateTime @default(now())
- creditedUntil DateTime?
- lastCountedFocusSessionId String?
- room GroupTimerRoom @relation(fields:[roomId],references:[id],onDelete:Cascade)
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@unique([roomId,userId])
- @@index([userId,lastSeenAt])
+  id                        String         @id @default(cuid())
+  roomId                    String
+  userId                    String
+  joinedAt                  DateTime       @default(now())
+  lastSeenAt                DateTime       @default(now())
+  creditedUntil             DateTime?
+  lastCountedFocusSessionId String?
+  room                      GroupTimerRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user                      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId, lastSeenAt])
 }
 
 model GroupTimerProposal {
- id String @id @default(cuid())
- roomId String
- proposerId String
- kind TimerProposalKind
- payload Json?
- requiredUserIds Json
- status TimerProposalStatus @default(PENDING)
- baseVersion Int
- expiresAt DateTime
- createdAt DateTime @default(now())
- resolvedAt DateTime?
- room GroupTimerRoom @relation(fields:[roomId],references:[id],onDelete:Cascade)
- proposer User @relation("TimerProposalAuthor",fields:[proposerId],references:[id],onDelete:Cascade)
- votes GroupTimerVote[]
- @@index([roomId,status,expiresAt])
+  id              String              @id @default(cuid())
+  roomId          String
+  proposerId      String
+  kind            TimerProposalKind
+  payload         Json?
+  requiredUserIds Json
+  status          TimerProposalStatus @default(PENDING)
+  baseVersion     Int
+  expiresAt       DateTime
+  createdAt       DateTime            @default(now())
+  resolvedAt      DateTime?
+  room            GroupTimerRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  proposer        User                @relation("TimerProposalAuthor", fields: [proposerId], references: [id], onDelete: Cascade)
+  votes           GroupTimerVote[]
+
+  @@index([roomId, status, expiresAt])
 }
 
 model GroupTimerVote {
- id String @id @default(cuid())
- proposalId String
- userId String
- approved Boolean
- createdAt DateTime @default(now())
- proposal GroupTimerProposal @relation(fields:[proposalId],references:[id],onDelete:Cascade)
- user User @relation(fields:[userId],references:[id],onDelete:Cascade)
- @@unique([proposalId,userId])
+  id         String             @id @default(cuid())
+  proposalId String
+  userId     String
+  approved   Boolean
+  createdAt  DateTime           @default(now())
+  proposal   GroupTimerProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
 }
 
 model GroupMember {
@@ -469,8 +925,8 @@ model GroupMember {
   userId   String
   role     GroupRole @default(MEMBER)
   joinedAt DateTime  @default(now())
-  group    Group     @relation(fields:[groupId],references:[id],onDelete:Cascade)
-  user     User      @relation(fields:[userId],references:[id],onDelete:Cascade)
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
 }
@@ -492,8 +948,8 @@ model UserLanguage {
   languageId String
   joinedAt   DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
 
   @@unique([userId, languageId])
 }

@@ -8,6 +8,7 @@ import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 import { summarizeWeakWords } from "@/lib/vocabulary-review";
+import { useSearchParams } from "next/navigation";
 
 type Word = {
   id: string;
@@ -44,6 +45,7 @@ type LanguageTab = {
   content?: unknown;
 };
 type Action = (formData: FormData) => void | Promise<void>;
+type RatingAction = (formData: FormData) => unknown | Promise<unknown>;
 type SyncAction = (formData: FormData) => void | Promise<void>;
 type GroupSyncTarget = {
   id: string;
@@ -88,6 +90,8 @@ export function LanguageTabs({
   reviewAttempts,
   saveAttemptAction,
   resetAttemptsAction,
+  rateReviewAction,
+  dueWordIds,
   savePracticePreferenceAction,
   initialSelectedIds,
   importGroupVocabularyToProfileAction,
@@ -111,12 +115,16 @@ export function LanguageTabs({
   reviewAttempts: ReviewAttempt[];
   saveAttemptAction: Action;
   resetAttemptsAction: Action;
+  rateReviewAction: RatingAction;
+  dueWordIds: string[];
   savePracticePreferenceAction: Action;
   initialSelectedIds: string[];
   importGroupVocabularyToProfileAction: SyncAction;
   importProfileVocabularyToGroupAction: SyncAction;
   strokeOrderImages?: Record<string, string>;
 }) {
+  const searchParams=useSearchParams();
+  const requestedMode=searchParams.get("mode");
   const visibleTabs = useMemo(() => {
     const base = tabs.length ? tabs : defaultTabs.filter((tab) => tab.slug !== "review");
     return base.some((tab) => tab.slug === "review")
@@ -146,6 +154,7 @@ export function LanguageTabs({
   }, [initialSelectedIds, words]);
 
   useEffect(() => {
+    if(requestedMode==="due"||requestedMode==="weak"){setTab("review");setTabReady(true);return;}
     const stored = localStorage.getItem(activeTabStorageKey);
     if (stored && visibleTabs.some((item) => item.slug === stored)) {
       setTab(stored);
@@ -153,7 +162,7 @@ export function LanguageTabs({
       setTab(visibleTabs[0]?.slug ?? "learning");
     }
     setTabReady(true);
-  }, [activeTabStorageKey, visibleTabs]);
+  }, [activeTabStorageKey, visibleTabs,requestedMode]);
 
   useEffect(() => {
     if (!tabReady) return;
@@ -236,6 +245,8 @@ export function LanguageTabs({
             reviewAttempts={reviewAttempts}
             saveAttemptAction={saveAttemptAction}
             resetAttemptsAction={resetAttemptsAction}
+            rateReviewAction={rateReviewAction}
+            dueIds={new Set(dueWordIds)}
           />
         </div>
       ) : activeTab?.type === "VOCABULARY" ? (

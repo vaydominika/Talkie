@@ -73,21 +73,26 @@ async function addSeconds(userId: string, key: string, timezone: string, seconds
     where: { userId_dateKey: { userId, dateKey: key } },
     data: { focusedSeconds: { increment: seconds } },
   });
+  const {refreshDailyQuestProgress}=await import("@/lib/learning-loop");await refreshDailyQuestProgress(userId,timezone);
 }
 
-export async function incrementFocusSession(userId: string, at: Date, timezone: string) {
+export type FocusContext = { languageId?: string | null; groupId?: string | null; planItemId?: string | null; lessonId?: string | null; destination?: string | null };
+
+export async function incrementFocusSession(userId: string, at: Date, timezone: string, sessionKey?: string | null, context: FocusContext = {}) {
   const key = dateKey(at, timezone);
   await ensureDailyRecord(userId, key, timezone);
-  await prisma.dailyStudyRecord.update({
-    where: { userId_dateKey: { userId, dateKey: key } },
-    data: { focusSessions: { increment: 1 } },
+  if (sessionKey) await prisma.focusStudySession.upsert({
+    where: { userId_sessionKey: { userId, sessionKey } },
+    update: {},
+    create: { userId, sessionKey, dateKey: key, timezone, startedAt: at, languageId: context.languageId ?? null, groupId: context.groupId ?? null, planItemId: context.planItemId ?? null, lessonId: context.lessonId ?? null, destination: context.destination ?? null },
   });
 }
 
-export async function creditRange(userId: string, start: Date, end: Date, timezone: string) {
+export async function creditRange(userId: string, start: Date, end: Date, timezone: string, sessionKey?: string | null) {
   if (end <= start) return;
   let cursor = start.getTime();
   const finish = end.getTime();
+  let creditedSeconds = 0;
   while (cursor < finish) {
     const key = dateKey(new Date(cursor), timezone);
     let high = Math.min(finish, cursor + 3_600_000);
@@ -101,10 +106,18 @@ export async function creditRange(userId: string, start: Date, end: Date, timezo
       }
     }
     const boundary = Math.min(finish, high);
-    await addSeconds(userId, key, timezone, Math.max(0, Math.floor((boundary - cursor) / 1_000)));
+    const seconds = Math.max(0, Math.floor((boundary - cursor) / 1_000));
+    await addSeconds(userId, key, timezone, seconds);
+    creditedSeconds += seconds;
     cursor = boundary;
     if (finish - cursor < 1_000) break;
   }
+  if (sessionKey && creditedSeconds > 0) await prisma.focusStudySession.updateMany({ where: { userId, sessionKey }, data: { focusedSeconds: { increment: creditedSeconds } } });
+}
+
+export async function finalizeFocusSession(userId: string, sessionKey: string | null | undefined, result: "COMPLETED" | "RESET" | "SKIPPED", endedAt = new Date()) {
+  if (!sessionKey) return;
+  await prisma.focusStudySession.updateMany({ where: { userId, sessionKey, endedAt: null }, data: { endedAt, result } });
 }
 
 export async function getPersonalTimer(userId: string) {
@@ -124,7 +137,7 @@ export async function reconcilePersonal(userId: string, timezone: string, now = 
       const creditEnd = wholeSecondEnd(start, intervalEnd);
       if (creditEnd > start) {
         const claim = await prisma.personalTimerState.updateMany({ where: { id: timer.id, creditedUntil: timer.creditedUntil }, data: { creditedUntil: creditEnd } });
-        if (claim.count) await creditRange(userId, start, creditEnd, timezone);
+        if (claim.count) await creditRange(userId, start, creditEnd, timezone, timer.focusSessionId);
       }
     }
     if (now < timer.endsAt) {
@@ -135,12 +148,16 @@ export async function reconcilePersonal(userId: string, timezone: string, now = 
     const nextSeconds = secondsForPhase(nextPhase, timer.focusMinutes, timer.breakMinutes);
     const nextStart = now;
     const nextFocusSessionId = nextPhase === "FOCUS" && timer.autoStart ? crypto.randomUUID() : null;
-    if (nextFocusSessionId) await incrementFocusSession(userId, nextStart, timezone);
+    if (timer.phase === "FOCUS") {
+      await finalizeFocusSession(userId, timer.focusSessionId, "COMPLETED", timer.endsAt);
+      if (timer.activePlanItemId) await prisma.studyPlanItem.updateMany({ where: { id: timer.activePlanItemId, plan: { userId }, status: "PENDING" }, data: { status: "COMPLETED" } });
+    }
+    if (nextFocusSessionId) await incrementFocusSession(userId, nextStart, timezone, nextFocusSessionId);
     timer = await prisma.personalTimerState.update({
       where: { id: timer.id },
       data: timer.autoStart
-        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, creditedUntil: nextStart, focusSessionId: nextFocusSessionId, version: { increment: 1 } }
-        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, creditedUntil: null, focusSessionId: null, version: { increment: 1 } },
+        ? { phase: nextPhase, phaseStartedAt: nextStart, endsAt: new Date(nextStart.getTime() + nextSeconds * 1000), remainingSeconds: nextSeconds, creditedUntil: nextStart, focusSessionId: nextFocusSessionId, activePlanItemId:null, activeLanguageId:null,activeGroupId:null, activeLessonId:null, activeDestination:null, plannedMinutes:null, version: { increment: 1 } }
+        : { phase: nextPhase, isRunning: false, phaseStartedAt: null, endsAt: null, remainingSeconds: nextSeconds, creditedUntil: null, focusSessionId: null, activePlanItemId:null, activeLanguageId:null,activeGroupId:null, activeLessonId:null, activeDestination:null, plannedMinutes:null, version: { increment: 1 } },
     });
   }
   return timer;
@@ -164,8 +181,8 @@ export async function reconcileRoom(roomId: string, now = new Date()) {
           });
           if (claim.count) {
             const timezone = safeTimezone(participant.user.profile?.timezone);
-            await creditRange(participant.userId, start, creditEnd, timezone);
-            if (isNewSession) await incrementFocusSession(participant.userId, start, timezone);
+            if (isNewSession) await incrementFocusSession(participant.userId, start, timezone, room.focusSessionId, { groupId: room.groupId });
+            await creditRange(participant.userId, start, creditEnd, timezone, room.focusSessionId);
           }
         }
       }
@@ -175,6 +192,7 @@ export async function reconcileRoom(roomId: string, now = new Date()) {
     const nextSeconds = secondsForPhase(nextPhase, room.focusMinutes, room.breakMinutes);
     const nextStart = now;
     const nextFocusSessionId = nextPhase === "FOCUS" && room.autoStart ? crypto.randomUUID() : null;
+    if (room.phase === "FOCUS" && room.focusSessionId) for (const participant of room.participants) await finalizeFocusSession(participant.userId, room.focusSessionId, "COMPLETED", room.endsAt);
     await prisma.groupTimerParticipant.updateMany({ where: { roomId }, data: { creditedUntil: nextStart } });
     await prisma.groupTimerRoom.update({
       where: { id: room.id },
@@ -190,6 +208,10 @@ export async function reconcileRoom(roomId: string, now = new Date()) {
 export async function applyRoomAction(roomId: string, kind: TimerProposalKind, payload: Record<string, unknown> | null, now = new Date()) {
   await reconcileRoom(roomId, now);
   const room = await prisma.groupTimerRoom.findUniqueOrThrow({ where: { id: roomId } });
+  if ((kind === "RESET" || kind === "SKIP") && room.phase === "FOCUS" && room.focusSessionId) {
+    const participants = await prisma.groupTimerParticipant.findMany({ where: { roomId }, select: { userId: true } });
+    for (const participant of participants) await finalizeFocusSession(participant.userId, room.focusSessionId, kind === "RESET" ? "RESET" : "SKIPPED", now);
+  }
   if (kind === "START") {
     const seconds = displayedRemaining(room, now) || secondsForPhase(room.phase, room.focusMinutes, room.breakMinutes);
     const focusSessionId = room.phase === "FOCUS" ? room.focusSessionId ?? crypto.randomUUID() : null;

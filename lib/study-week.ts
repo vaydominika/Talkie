@@ -21,12 +21,13 @@ export async function getStudyWeek(userId: string, now = new Date()): Promise<St
   const weekday = todayUtc.getUTCDay() || 7;
   const mondayKey = shiftDateKey(todayKey, -(weekday - 1));
   const keys = Array.from({ length: 7 }, (_, index) => shiftDateKey(mondayKey, index));
-  const [records, attempts] = await Promise.all([
+  const [records, attempts, sessions] = await Promise.all([
     prisma.dailyStudyRecord.findMany({ where: { userId, dateKey: { in: keys } } }),
     prisma.vocabularyReviewAttempt.findMany({
       where: { userId, createdAt: { gte: new Date(todayUtc.getTime() - 8 * 86_400_000), lte: new Date(todayUtc.getTime() + 8 * 86_400_000) } },
       select: { vocabularyEntryId: true, createdAt: true },
     }),
+    prisma.focusStudySession.findMany({ where: { userId, dateKey: { in: keys }, focusedSeconds: { gte: 60 } }, select: { dateKey: true } }),
   ]);
   const recordsByKey = new Map(records.map((record) => [record.dateKey, record]));
   const wordsByKey = new Map<string, Set<string>>();
@@ -38,11 +39,12 @@ export async function getStudyWeek(userId: string, now = new Date()): Promise<St
     wordsByKey.set(key, words);
   }
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const sessionsByKey=new Map<string,number>();for(const session of sessions)sessionsByKey.set(session.dateKey,(sessionsByKey.get(session.dateKey)??0)+1);
   return keys.map((key, index) => {
     const record = recordsByKey.get(key);
     const focusedSeconds = record?.focusedSeconds ?? 0;
     const targetMinutes = (record?.targetMinutes ?? profile?.dailyMinutes ?? 15) + (record?.carryOverMinutes ?? 0);
     const status = key > todayKey ? "future" : focusedSeconds >= targetMinutes * 60 ? "complete" : focusedSeconds > 0 ? "partial" : "empty";
-    return { dateKey: key, label: labels[index], status, focusedSeconds, targetMinutes, focusSessions: record?.focusSessions ?? 0, wordCount: wordsByKey.get(key)?.size ?? 0, isToday: key === todayKey };
+    return { dateKey: key, label: labels[index], status, focusedSeconds, targetMinutes, focusSessions: sessionsByKey.get(key) ?? 0, wordCount: wordsByKey.get(key)?.size ?? 0, isToday: key === todayKey };
   });
 }
