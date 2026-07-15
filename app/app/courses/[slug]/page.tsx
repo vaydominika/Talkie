@@ -100,11 +100,11 @@ function LessonListItem({
   const completed = Boolean(lesson.progress?.[0]?.completedAt);
 
   return (
-    <li className={`flex items-center justify-between rounded-md border px-3 py-2 ${next ? "border-rose-200 bg-rose-50/50" : ""}`}>
+    <li className={`flex items-center justify-between rounded-md border px-3 py-2 ${next ? "border-ring/40 bg-accent/25" : ""}`}>
       <span className="flex items-center gap-2">
         <span>{lesson.title}</span>
-        {completed ? <span className="rounded-full border border-[#d6dfca] bg-[#e5ebdf] px-2 py-0.5 text-xs text-[#4a5b3b]">Complete</span> : null}
-        {next ? <span className="rounded-full border border-rose-200 bg-white px-2 py-0.5 text-xs text-rose-700">Next</span> : null}
+        {completed ? <span className="rounded-full border border-success/30 bg-success/15 px-2 py-0.5 text-xs text-success">Complete</span> : null}
+        {next ? <span className="rounded-full border border-ring/40 bg-background px-2 py-0.5 text-xs text-foreground">Next</span> : null}
       </span>
       <Button asChild variant="outline">
         <Link href={`/app/lessons/${lesson.id}`}>{completed ? "Review" : "Study"}</Link>

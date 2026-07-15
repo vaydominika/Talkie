@@ -4,6 +4,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { kanaGroups, type KanaItem } from "@/lib/kana";
 import { saveKanaAttempt } from "@/lib/kana-review";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type Status = "idle" | "correct" | "wrong";
 
@@ -69,10 +71,10 @@ export function KanaFlashcards() {
   }
 
   return (
-    <section className="mx-auto max-w-md rounded-2xl border bg-[#fbfaf4] p-6 text-center shadow-sm dark:bg-stone-950">
+    <section className="mx-auto max-w-md rounded-lg border border-ring bg-accent p-6 text-center text-accent-foreground">
       <OrderControls ordered={ordered} onChangeOrder={changeOrder} />
 
-      <p className="mt-10 text-8xl text-stone-900 dark:text-stone-100">{item.kana}</p>
+      <p className="mt-10 text-8xl text-accent-foreground">{item.kana}</p>
 
       <KanaAnswerForm
         answer={answer}
@@ -87,19 +89,19 @@ export function KanaFlashcards() {
         onToggleHint={() => setHint((value) => !value)}
       />
 
-      <p className="mt-8 text-xs text-muted-foreground">Press Enter to check and move to the next prompt.</p>
+      <p className="mt-8 text-xs text-accent-foreground/70">Press Enter to check and move to the next prompt.</p>
     </section>
   );
 }
 
 function KanaCompleteCard({ onRestart }: { onRestart: () => void }) {
   return (
-    <section className="mx-auto max-w-md rounded-2xl border bg-[#fbfaf4] p-8 text-center shadow-sm dark:bg-stone-950">
+    <section className="mx-auto max-w-md rounded-lg border border-ring bg-accent p-8 text-center text-accent-foreground">
       <h2 className="font-serif text-3xl">Sprint complete.</h2>
-      <p className="mt-2 text-sm text-muted-foreground">You cleared every selected kana.</p>
-      <button onClick={onRestart} className="mt-6 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white">
+      <p className="mt-2 text-sm text-accent-foreground/70">You cleared every selected kana.</p>
+      <Button onClick={onRestart} className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
         Start again
-      </button>
+      </Button>
     </section>
   );
 }
@@ -125,13 +127,13 @@ function OrderControls({
 
 function OrderButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-sm ${active ? "bg-rose-600 text-white" : "border border-stone-500 text-stone-200"}`}
+      className={`rounded-full px-3 py-1.5 text-sm ${active ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -155,25 +157,25 @@ function KanaAnswerForm({
   return (
     <form onSubmit={onSubmit} className="mt-8">
       <div className="relative">
-        <input
+        <Input
           value={answer}
           onChange={(event) => onChangeAnswer(event.target.value)}
           autoFocus
           autoComplete="off"
           spellCheck={false}
-          className={`h-14 w-full rounded-lg border bg-white px-4 text-center font-mono text-xl text-stone-900 outline-none transition focus:ring-2 ${inputStatusClassName(status)}`}
+          className={`h-14 border-ring! bg-background/90 text-center font-mono text-xl ${inputStatusClassName(status)}`}
         />
-        <button
+        <Button
           type="button"
           onClick={onToggleHint}
           aria-label="Toggle answer"
-          className="absolute right-2 top-2 rounded p-2 text-stone-500 hover:bg-stone-100"
+          className="absolute right-2 top-2 rounded p-2 text-muted-foreground hover:bg-muted"
         >
           {hint ? <EyeOff size={19} /> : <Eye size={19} />}
-        </button>
+        </Button>
       </div>
 
-      {hint ? <p className="mt-2 animate-answer-reveal font-mono text-sm text-rose-700">{item.romaji}</p> : null}
+      {hint ? <p className="mt-2 animate-answer-reveal font-mono text-sm text-accent-foreground">{item.romaji}</p> : null}
 
       <p className={`mt-3 min-h-5 text-sm font-medium ${statusTextClassName(status)}`}>
         {status === "correct" ? "Correct" : "Try again"}
@@ -183,13 +185,13 @@ function KanaAnswerForm({
 }
 
 function inputStatusClassName(status: Status) {
-  if (status === "correct") return "border-[#82946d] bg-[#e5ebdf] focus:ring-[#a8b99a]";
-  if (status === "wrong") return "border-rose-500 bg-rose-50 focus:ring-rose-300";
-  return "focus:ring-rose-300";
+  if (status === "correct") return "bg-success/15 focus:ring-success/30";
+  if (status === "wrong") return "bg-destructive/10 focus:ring-destructive/30";
+  return "focus:ring-ring/40";
 }
 
 function statusTextClassName(status: Status) {
-  if (status === "correct") return "text-[#4a5b3b]";
-  if (status === "wrong") return "text-rose-600";
+  if (status === "correct") return "text-success";
+  if (status === "wrong") return "text-destructive";
   return "text-transparent";
 }

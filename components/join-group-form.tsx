@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import type { GroupPreview } from "@/components/group-modal-actions";
 
@@ -85,7 +87,7 @@ export function JoinGroupForm({
       <div className="flex gap-2">
         <label className="min-w-0 flex-1 text-sm font-medium text-muted-foreground">
           Invite code
-          <input
+          <Input
             type="text"
             name="inviteCode"
             value={inviteCode}
@@ -97,7 +99,7 @@ export function JoinGroupForm({
             placeholder="AB12XY"
             required
             maxLength={10}
-            className="mt-1 h-10 w-full rounded-md border bg-background px-3 font-mono uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-400"
+            className="mt-1 font-mono uppercase tracking-widest"
           />
         </label>
         <Button type="button" variant="outline" onClick={checkGroup} disabled={!inviteCode.trim() || pending} className="mt-6">
@@ -105,14 +107,14 @@ export function JoinGroupForm({
         </Button>
       </div>
 
-      {error && <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {error && <p className="rounded-md border border-ring/40 bg-accent/30 p-3 text-sm text-foreground">{error}</p>}
 
       {preview && (
         <section className="space-y-4 rounded-lg border bg-muted/10 p-4">
           <div>
             <p className="font-semibold">{preview.name}</p>
             {preview.description && <p className="mt-1 text-sm text-muted-foreground">{preview.description}</p>}
-            {preview.alreadyMember && <p className="mt-2 text-xs font-medium text-rose-700">You are already a member.</p>}
+            {preview.alreadyMember && <p className="mt-2 text-xs font-medium text-foreground">You are already a member.</p>}
           </div>
           <div className="space-y-2">
             <p className="text-sm font-medium">Group languages</p>
@@ -142,11 +144,10 @@ export function JoinGroupForm({
                     const words = vocabByLanguage.get(language.id) ?? [];
                     return (
                       <label key={language.id} className="flex cursor-pointer items-start gap-3 rounded-md border bg-background p-3 text-sm">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={importLanguageIds.has(language.id)}
-                          onChange={() => toggleImport(language.id)}
-                          className="mt-1 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                          onCheckedChange={() => toggleImport(language.id)}
+                          className="mt-1"
                         />
                         <span>
                           <span className="font-medium">
@@ -175,7 +176,7 @@ export function JoinGroupForm({
       <PendingSubmitButton
         disabled={!preview || pending}
         pendingLabel="Joining..."
-        className="h-10 w-full rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700"
+        className="h-10 w-full rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
       >
         Join group
       </PendingSubmitButton>

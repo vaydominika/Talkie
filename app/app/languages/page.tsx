@@ -34,7 +34,7 @@ export default async function ManageLanguagesPage() {
         {allLanguages.map((language) => {
           const isActive = activeLanguageIds.has(language.id);
           return (
-            <Card key={language.id} className={`hover:shadow-sm transition-all border ${isActive ? "border-rose-200 bg-rose-50/10" : ""}`}>
+            <Card key={language.id} className={`hover: transition-colors border ${isActive ? "border-ring/40 bg-accent/10" : ""}`}>
               <CardHeader>
                 <CardTitle className="text-xl font-bold flex justify-between items-center">
                   <span>{language.name}</span>
@@ -55,7 +55,7 @@ export default async function ManageLanguagesPage() {
                     </form>
                     <form action={removeLanguageFromProfile}>
                       <input type="hidden" name="languageId" value={language.id} />
-                      <Button type="submit" variant="outline" className="w-full text-rose-600 border-rose-200 hover:bg-rose-50">
+                      <Button type="submit" variant="outline" className="w-full text-destructive border-ring/40 hover:bg-accent/30">
                         Remove from My Languages
                       </Button>
                     </form>
@@ -63,7 +63,7 @@ export default async function ManageLanguagesPage() {
                 ) : (
                   <form action={addLanguageToProfile}>
                     <input type="hidden" name="languageId" value={language.id} />
-                    <Button type="submit" className="w-full bg-rose-600 hover:bg-rose-700 text-white">
+                    <Button type="submit" className="w-full bg-primary hover:bg-primary text-primary-foreground">
                       Import starter template
                     </Button>
                   </form>

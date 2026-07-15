@@ -7,6 +7,9 @@ import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormSelect } from "@/components/ui/form-select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSearchParams } from "next/navigation";
 import {
   importGroupVocabularyToProfileAction,
@@ -217,39 +220,44 @@ export function GroupTabs({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between border-b border-muted gap-4">
-        <div className="flex">
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Group sections">
           {[
             { id: "vocabulary", label: "Vocabulary" },
             { id: "flashcards", label: "Flashcards" },
             { id: "members", label: "Members" },
           ].map((item) => (
-            <button
+            <Button
               key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tabReady && tab === item.id}
+              variant="ghost"
+              size="sm"
               onClick={() => selectTab(item.id)}
-              className={`mr-6 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
-                tabReady && tab === item.id ? "border-rose-600 text-rose-700 font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"
+              className={`h-10 rounded-none border-b-2 bg-transparent px-3 font-medium shadow-none hover:bg-muted/60 ${
+                tabReady && tab === item.id
+                  ? "border-ring text-foreground hover:text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               {item.label}
-            </button>
+            </Button>
           ))}
         </div>
 
         {tabReady && isOwnerOrAdmin && tab !== "flashcards" && (
           <form className="pb-3 flex items-center gap-2 text-xs">
             <input type="hidden" name="groupId" value={groupId} />
-            <input
-              type="checkbox"
+            <Checkbox
               id="allowMemberImports"
               name="allowMemberImports"
               defaultChecked={allowMemberImports}
-              onChange={(e) => {
+              onCheckedChange={(checked) => {
                 const formData = new FormData();
                 formData.append("groupId", groupId);
-                if (e.target.checked) formData.append("allowMemberImports", "on");
+                if (checked) formData.append("allowMemberImports", "on");
                 toggleGroupMemberImportsAction(formData);
               }}
-              className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
             />
             <label htmlFor="allowMemberImports" className="font-medium text-muted-foreground select-none cursor-pointer">
               Allow members to import flashcards
@@ -269,17 +277,7 @@ export function GroupTabs({
               {addableLanguages.length > 0 ? (
                 <form action={addLanguageAction} className="flex items-center gap-2">
                   <input type="hidden" name="groupId" value={groupId} />
-                  <select
-                    name="languageId"
-                    className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-400"
-                    defaultValue={addableLanguages[0]?.id}
-                  >
-                    {addableLanguages.map((language) => (
-                      <option key={language.id} value={language.id}>
-                        {language.name}
-                      </option>
-                    ))}
-                  </select>
+                  <FormSelect name="languageId" defaultValue={addableLanguages[0]?.id} className="w-40" options={addableLanguages.map(language=>({value:language.id,label:language.name}))}/>
                   <PendingSubmitButton
                     pendingLabel="Adding..."
                     className="h-10 rounded-md border px-3 text-sm font-medium hover:bg-muted"
@@ -294,7 +292,7 @@ export function GroupTabs({
           </div>
 
           {groupLanguages.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center bg-muted/10">
+            <div className="rounded-lg border border-dashed p-8 text-center bg-muted/10">
               <p className="text-muted-foreground">No languages have been added to this group yet.</p>
               <p className="text-xs text-muted-foreground mt-1">Add a language from your Languages page to start a shared deck.</p>
             </div>
@@ -304,12 +302,12 @@ export function GroupTabs({
                 const count = wordsByLanguage.get(language.id)?.length ?? 0;
                 const isActive = activeLanguage?.id === language.id;
                 return (
-                  <button
+                  <Button
                     key={language.id}
                     type="button"
                     onClick={() => setActiveLanguageId(language.id)}
                     className={`rounded-lg border p-4 text-left transition-colors ${
-                      isActive ? "border-rose-300 bg-rose-50/40 dark:bg-rose-950/10" : "hover:border-rose-200"
+                      isActive ? "border-ring/60 bg-accent/20 dark:bg-accent/10" : "hover:border-ring/40"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -324,7 +322,7 @@ export function GroupTabs({
                     <p className="mt-4 text-sm text-muted-foreground">
                       {count} shared word{count === 1 ? "" : "s"}
                     </p>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -340,7 +338,7 @@ export function GroupTabs({
                   description={`Remove ${activeLanguage.name} and its shared words from this group?`}
                   confirmLabel="Remove language"
                   className="flex justify-end"
-                  buttonClassName="rounded-md border px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                  buttonClassName="rounded-md border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
                 >
                   Remove language
                 </ConfirmActionForm>
@@ -399,26 +397,26 @@ export function GroupTabs({
         <div className="space-y-4">
           {groupLanguages.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 type="button"
                 onClick={() => setActiveLanguageId("")}
                 className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                  !activeLanguage ? "border-rose-600 bg-rose-600 text-white" : "hover:bg-muted"
+                  !activeLanguage ? "border-ring bg-primary text-primary-foreground" : "hover:bg-muted"
                 }`}
               >
                 All Languages
-              </button>
+              </Button>
               {groupLanguages.map((language) => (
-                <button
+                <Button
                   key={language.id}
                   type="button"
                   onClick={() => setActiveLanguageId(language.id)}
                   className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                    activeLanguage?.id === language.id ? "border-rose-600 bg-rose-600 text-white" : "hover:bg-muted"
+                    activeLanguage?.id === language.id ? "border-ring bg-primary text-primary-foreground" : "hover:bg-muted"
                   }`}
                 >
                   {language.name}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -436,7 +434,7 @@ export function GroupTabs({
             rateReviewAction={rateReviewAction}
             dueIds={new Set(dueWordIds)}
           />
-          <div className="animate-panel-in grid gap-4 sm:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-5">
             <Stat label="Days learned" value={new Set(activeAttempts.map((attempt) => new Date(attempt.createdAt).toDateString())).size} />
             <Stat label="New words" value={new Set(activeAttempts.map((attempt) => attempt.vocabularyEntryId)).size} />
             <Stat label="Correct" value={activeAttempts.filter((attempt) => attempt.correct).length} />
@@ -450,21 +448,21 @@ export function GroupTabs({
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Group Members ({members.length})</h3>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left">
-                <tr>
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3 text-right">Joined</th>
-                  {isOwner && <th className="p-3 text-right">Manage</th>}
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-muted text-left">
+                <TableRow>
+                  <TableHead className="p-3">Name</TableHead>
+                  <TableHead className="p-3">Role</TableHead>
+                  <TableHead className="p-3 text-right">Joined</TableHead>
+                  {isOwner && <TableHead className="p-3 text-right">Manage</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {members.map((member) => {
                   const canManageMember = isOwner && member.role !== "OWNER" && member.userId !== currentUserId;
                   return (
-                    <tr key={member.id} className="border-t">
-                      <td className="p-3 font-medium">
+                    <TableRow key={member.id} className="border-t">
+                      <TableCell className="p-3 font-medium">
                         <div className="flex items-center gap-3">
                           <UserAvatar name={member.user.name} email={member.user.email} image={member.user.image} size="sm" />
                           <div>
@@ -472,36 +470,29 @@ export function GroupTabs({
                             {member.user.name && <p className="text-xs font-normal text-muted-foreground">{member.user.email}</p>}
                           </div>
                         </div>
-                      </td>
-                      <td className="p-3">
+                      </TableCell>
+                      <TableCell className="p-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                           member.role === "OWNER"
                             ? "bg-amber-50 text-amber-800 border border-amber-200"
                             : member.role === "ADMIN"
-                              ? "bg-blue-50 text-blue-800 border border-blue-200"
-                              : "bg-stone-50 text-stone-700 border border-stone-200"
+                              ? "bg-muted text-foreground border border-border"
+                              : "bg-muted text-foreground border border-border"
                         }`}>
                           {member.role}
                         </span>
-                      </td>
-                      <td className="p-3 text-right text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="p-3 text-right text-xs text-muted-foreground">
                         {new Date(member.joinedAt).toLocaleDateString()}
-                      </td>
+                      </TableCell>
                       {isOwner && (
-                        <td className="p-3">
+                        <TableCell className="p-3">
                           {canManageMember ? (
                             <div className="flex flex-wrap justify-end gap-2">
                               <form action={updateMemberRoleAction} className="flex items-center gap-2">
                                 <input type="hidden" name="groupId" value={groupId} />
                                 <input type="hidden" name="memberId" value={member.id} />
-                                <select
-                                  name="role"
-                                  defaultValue={member.role}
-                                  className="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-rose-400"
-                                >
-                                  <option value="MEMBER">Member</option>
-                                  <option value="ADMIN">Admin</option>
-                                </select>
+                                <FormSelect name="role" defaultValue={member.role} className="h-8 w-28 text-xs" options={[{value:"MEMBER",label:"Member"},{value:"ADMIN",label:"Admin"}]}/>
                                 <Button type="submit" variant="outline" className="h-8 px-3">
                                   Save
                                 </Button>
@@ -512,7 +503,7 @@ export function GroupTabs({
                                 title="Remove member"
                                 description={`Remove ${member.user.name || member.user.email} from this group?`}
                                 confirmLabel="Remove member"
-                                buttonClassName="h-8 rounded-md border px-3 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                                buttonClassName="h-8 rounded-md border px-3 text-sm font-medium text-foreground hover:bg-accent/30"
                               >
                                 Remove
                               </ConfirmActionForm>
@@ -520,13 +511,13 @@ export function GroupTabs({
                           ) : (
                             <p className="text-right text-xs text-muted-foreground">Owner</p>
                           )}
-                        </td>
+                        </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

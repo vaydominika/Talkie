@@ -1,65 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-const sizes = {
-  sm: "h-8 w-8 text-xs",
-  md: "h-10 w-10 text-sm",
-  lg: "h-16 w-16 text-xl",
-};
+const sizes={sm:"size-8 text-xs",md:"size-10 text-sm",lg:"size-16 text-xl"};
 
-const imageSizes = {
-  sm: 32,
-  md: 40,
-  lg: 64,
-};
-
-function initials(name?: string | null, email?: string | null) {
-  const cleanedName = name?.trim();
-  const source = cleanedName && cleanedName !== "?" ? cleanedName : email?.split("@")[0] || "?";
-  return source
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
+function initials(name?:string|null,email?:string|null){
+  const cleaned=name?.trim();
+  const source=cleaned&&cleaned!=="?"?cleaned:email?.split("@")[0]||"?";
+  return source.split(/\s+/).slice(0,2).map(part=>part[0]?.toUpperCase()).join("");
 }
 
-export function UserAvatar({
-  name,
-  email,
-  image,
-  size = "md",
-  className,
-}: {
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-  size?: keyof typeof sizes;
-  className?: string;
-}) {
-  const [imageSource, setImageSource] = useState(image);
-
-  useEffect(() => {
-    setImageSource(image);
-  }, [image]);
-
-  if (imageSource) {
-    return (
-      <img
-        src={imageSource}
-        alt={name || email || "User avatar"}
-        width={imageSizes[size]}
-        height={imageSizes[size]}
-        className={cn("rounded-full border object-cover", sizes[size], className)}
-        onError={() => setImageSource(null)}
-      />
-    );
-  }
-
-  return (
-    <span className={cn("inline-flex items-center justify-center rounded-full border bg-muted font-semibold", sizes[size], className)}>
-      {initials(name, email)}
-    </span>
-  );
+export function UserAvatar({name,email,image,size="md",className}:{name?:string|null;email?:string|null;image?:string|null;size?:keyof typeof sizes;className?:string}){
+  return <Avatar className={cn("border",sizes[size],className)}>
+    {image?<AvatarImage src={image} alt={name||email||"User avatar"} className="object-cover"/>:null}
+    <AvatarFallback className="font-semibold text-foreground">{initials(name,email)}</AvatarFallback>
+  </Avatar>;
 }

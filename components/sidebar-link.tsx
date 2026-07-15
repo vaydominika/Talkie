@@ -23,9 +23,9 @@ export function SidebarLink({
       href={href as Route}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative block rounded-md px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground",
+        "block rounded-md border border-transparent px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/45 hover:text-sidebar-foreground",
         active &&
-          "bg-rose-50/70 pl-4 font-semibold text-stone-950 shadow-[inset_3px_0_0_theme(colors.rose.600)] dark:bg-rose-950/20 dark:text-stone-50 dark:shadow-[inset_3px_0_0_theme(colors.rose.300)]",
+          "border-sidebar-border bg-transparent font-semibold text-sidebar-foreground hover:bg-transparent",
       )}
     >
       {children}

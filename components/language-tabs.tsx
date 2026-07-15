@@ -9,6 +9,9 @@ import { VocabularyTable } from "@/components/vocabulary-table";
 import { VocabularyFlashcards } from "@/components/vocabulary-flashcards";
 import { summarizeWeakWords } from "@/lib/vocabulary-review";
 import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Word = {
   id: string;
@@ -209,17 +212,24 @@ export function LanguageTabs({
 
   return (
     <div>
-      <div className="mb-6 border-b">
+      <div className="mb-6 flex flex-wrap gap-1 border-b" role="tablist" aria-label={`${language} sections`}>
         {visibleTabs.map((item) => (
-          <button
+          <Button
             key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tabReady && tab === item.slug}
+            variant="ghost"
+            size="sm"
             onClick={() => selectTab(item.slug)}
-            className={`mr-5 border-b-2 px-1 pb-3 text-sm font-medium ${
-              tabReady && tab === item.slug ? "border-rose-600 text-rose-700" : "border-transparent text-muted-foreground"
+            className={`h-10 rounded-none border-b-2 bg-transparent! px-3 font-medium shadow-none hover:bg-transparent! ${
+              tabReady && tab === item.slug
+                ? "border-ring text-ring hover:text-ring"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             {item.title}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -227,7 +237,7 @@ export function LanguageTabs({
         isJapanese ? (
           <KanaChecker strokeOrderImages={strokeOrderImages} />
         ) : (
-          <section className="rounded-2xl border border-dashed p-8 text-center">
+          <section className="rounded-lg border border-dashed p-8 text-center">
             <h2 className="font-serif text-2xl">{language} learning</h2>
             <p className="mt-2 text-sm text-muted-foreground">Add lessons, grammar, vocab, and tests from Content Studio.</p>
           </section>
@@ -268,17 +278,7 @@ export function LanguageTabs({
           syncControls={
             groupSyncTargets.length > 0 && selectedGroup ? (
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={selectedGroup.id}
-                  onChange={(event) => setSelectedGroupId(event.target.value)}
-                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-400"
-                >
-                  {groupSyncTargets.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedGroup.id} onValueChange={setSelectedGroupId}><SelectTrigger className="w-44"><SelectValue/></SelectTrigger><SelectContent>{groupSyncTargets.map(group=><SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent></Select>
                 <form action={importGroupVocabularyToProfileAction}>
                   <input type="hidden" name="groupId" value={selectedGroup.id} />
                   <input type="hidden" name="languageId" value={languageId} />
@@ -297,7 +297,7 @@ export function LanguageTabs({
                     <PendingSubmitButton
                       disabled={selectedGroup.mineToGroupCount === 0}
                       pendingLabel="Copying..."
-                      className="h-10 rounded-md border border-rose-200 px-3 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-10 rounded-md border border-ring/40 px-3 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Copy mine to group
                     </PendingSubmitButton>
@@ -312,7 +312,7 @@ export function LanguageTabs({
           <JapaneseReview reviewAttempts={reviewAttempts} />
         ) : (
           <div className="space-y-6">
-          <div className="animate-panel-in grid gap-4 sm:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-5">
             <Stat label="Days learned" value={learnedDays} />
             <Stat label="New words" value={uniqueReviewed} />
             <Stat label="Correct" value={correctCount} />
@@ -320,40 +320,40 @@ export function LanguageTabs({
             <Stat label="Weak" value={activeWeak.length} />
           </div>
           {weakAttempts.length === 0 ? (
-            <section className="animate-panel-in rounded-lg border border-dashed p-8 text-center">
+            <section className="rounded-lg border border-dashed p-8 text-center">
               <h2 className="text-xl font-semibold">No weak answers yet.</h2>
               <p className="mt-2 text-sm text-muted-foreground">Hint-used and missed answers from flashcards will appear here.</p>
             </section>
           ) : (
-            <div className="animate-panel-in overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted text-left">
-                  <tr>
-                    <th className="p-3">Word</th>
-                    <th className="p-3">Prompt</th>
-                    <th className="p-3">Expected</th>
-                    <th className="p-3">Your answer</th>
-                    <th className="p-3">Why weak</th>
-                    <th className="p-3 text-right">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted text-left">
+                  <TableRow>
+                    <TableHead className="p-3">Word</TableHead>
+                    <TableHead className="p-3">Prompt</TableHead>
+                    <TableHead className="p-3">Expected</TableHead>
+                    <TableHead className="p-3">Your answer</TableHead>
+                    <TableHead className="p-3">Why weak</TableHead>
+                    <TableHead className="p-3 text-right">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {weakAttempts.map((attempt, index) => (
-                    <tr key={attempt.id} className="animate-list-in border-t" style={{ animationDelay: `${index * 25}ms` }}>
-                      <td className="p-3 font-medium">{attempt.displayForm}</td>
-                      <td className="p-3">{attempt.prompt}</td>
-                      <td className="p-3">{attempt.expected}</td>
-                      <td className={attempt.correct ? "p-3 text-muted-foreground" : "p-3 text-rose-700"}>{attempt.answer || "-"}</td>
-                      <td className="p-3">
-                        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${attempt.usedHint ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                    <TableRow key={attempt.id} className="border-t" style={{ animationDelay: `${index * 25}ms` }}>
+                      <TableCell className="p-3 font-medium">{attempt.displayForm}</TableCell>
+                      <TableCell className="p-3">{attempt.prompt}</TableCell>
+                      <TableCell className="p-3">{attempt.expected}</TableCell>
+                      <TableCell className={attempt.correct ? "p-3 text-muted-foreground" : "p-3 text-foreground"}>{attempt.answer || "-"}</TableCell>
+                      <TableCell className="p-3">
+                        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${attempt.usedHint ? "border-amber-200 bg-amber-50 text-amber-800" : "border-ring/40 bg-accent/30 text-foreground"}`}>
                           {attempt.usedHint && !attempt.correct ? "Missed + hint" : attempt.usedHint ? "Hint used" : "Missed"}
                         </span>
-                      </td>
-                      <td className="p-3 text-right text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleDateString()}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="p-3 text-right text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleDateString()}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
           </div>
@@ -363,7 +363,7 @@ export function LanguageTabs({
           {grammar.map((point) => {
             const richHtml = htmlFromRichContent(point.richContent);
             return (
-              <article key={point.id} className="rounded-xl border p-5">
+              <article key={point.id} className="rounded-lg border p-5">
                 <h2 className="font-semibold">{point.title}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{point.level?.code}</p>
                 <p className="mt-3 text-sm">{point.summary}</p>
@@ -377,7 +377,7 @@ export function LanguageTabs({
           })}
         </div>
       ) : (
-        <section className="rounded-2xl border border-dashed p-8">
+        <section className="rounded-lg border border-dashed p-8">
           <h2 className="font-serif text-2xl">{activeTab?.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {noteFromContent(activeTab?.content) || "This custom tab is ready. Add its content in Content Studio."}

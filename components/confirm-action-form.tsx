@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useRef, useState } from "react";
-import { AppModal } from "@/components/app-modal";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 type Action = (formData: FormData) => void | Promise<void>;
@@ -34,29 +34,11 @@ export function ConfirmActionForm({
         {Object.entries(fields).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
-        <button type="button" onClick={() => setOpen(true)} className={buttonClassName}>
+        <Button type="button" variant="ghost" onClick={() => setOpen(true)} className={buttonClassName}>
           {children}
-        </button>
+        </Button>
       </form>
-      {open && (
-        <AppModal title={title} description={description} onClose={() => setOpen(false)}>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="bg-rose-600 text-white hover:bg-rose-700"
-              onClick={() => {
-                setOpen(false);
-                formRef.current?.requestSubmit();
-              }}
-            >
-              {confirmLabel}
-            </Button>
-          </div>
-        </AppModal>
-      )}
+      <AlertDialog open={open} onOpenChange={setOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{title}</AlertDialogTitle><AlertDialogDescription>{description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction asChild><Button variant="destructive" onClick={() => {setOpen(false);formRef.current?.requestSubmit()}}>{confirmLabel}</Button></AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }

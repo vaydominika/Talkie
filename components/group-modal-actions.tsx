@@ -37,7 +37,7 @@ export function GroupModalActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setModal("create")} className="bg-rose-600 hover:bg-rose-700 text-white">
+        <Button onClick={() => setModal("create")} className="bg-primary hover:bg-primary text-primary-foreground">
           Create group
         </Button>
         <Button onClick={() => setModal("join")} variant="outline">

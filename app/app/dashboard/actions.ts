@@ -34,7 +34,7 @@ export async function generateStudyPlan(formData: FormData) {
   for (const attempt of attempts) if (!latest.has(attempt.vocabularyEntryId)) latest.set(attempt.vocabularyEntryId, attempt);
   for (const attempt of latest.values()) if (!attempt.correct || attempt.usedHint) weakIds.add(attempt.vocabularyEntryId);
   const primaryLanguage = languages.find(item=>item.id===attempts[0]?.languageId) ?? due[0]?.vocabularyEntry.language ?? languages[0];
-  const items: { type: "DUE_REVIEW" | "WEAK_WORDS" | "LESSON" | "LISTENING" | "FREE_FOCUS"; title: string; description: string; href: string | null; referenceId?: string; estimatedMinutes: number; metadata?:Record<string,string> }[] = [];
+  const items: { type: "DUE_REVIEW" | "WEAK_WORDS" | "LESSON" | "FREE_FOCUS"; title: string; description: string; href: string | null; referenceId?: string; estimatedMinutes: number; metadata?:Record<string,string> }[] = [];
   let remaining = durationMinutes;
   if (due.length) {
     const budget=Math.min(remaining,Math.max(5,Math.min(20,Math.ceil(due.length/2)))); const bySpace=new Map<string,typeof due>();for(const item of due){const space=`${item.vocabularyEntry.groupId??"personal"}:${item.vocabularyEntry.languageId}`;bySpace.set(space,[...(bySpace.get(space)??[]),item]);}
@@ -50,11 +50,6 @@ export async function generateStudyPlan(formData: FormData) {
   if (lesson && remaining >= 5) {
     const minutes = Math.min(remaining, 15);
     items.push({ type: "LESSON", title: lesson.title, description: `Continue ${lesson.unit.course.title}.`, href: `/app/lessons/${lesson.id}`, referenceId: lesson.id, estimatedMinutes: minutes,metadata:{languageId:lesson.unit.course.languageId} });
-    remaining -= minutes;
-  }
-  if (primaryLanguage && remaining >= 5) {
-    const minutes = Math.min(remaining, 10);
-    items.push({ type: "LISTENING", title: `${primaryLanguage.name} listening`, description: "Listen, repeat, and shadow a short phrase.", href: `/app/listening?language=${primaryLanguage.id}`, referenceId: primaryLanguage.id, estimatedMinutes: minutes,metadata:{languageId:primaryLanguage.id} });
     remaining -= minutes;
   }
   if (remaining > 0 || !items.length) items.push({ type: "FREE_FOCUS", title: "Open focus", description: "Use this time for the work that matters most today.", href: null, estimatedMinutes: Math.max(5, remaining || durationMinutes) });

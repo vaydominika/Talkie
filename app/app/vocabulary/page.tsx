@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function VocabularyPage() {
   const session = await auth();
@@ -18,28 +19,28 @@ export default async function VocabularyPage() {
     <>
       <h1 className="text-3xl font-semibold">Vocabulary</h1>
       <div className="mt-6 overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left">
-            <tr>
-              <th className="p-3">Word</th>
-              <th className="p-3">Meaning</th>
-              <th className="p-3">Language</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-muted text-left">
+            <TableRow>
+              <TableHead className="p-3">Word</TableHead>
+              <TableHead className="p-3">Meaning</TableHead>
+              <TableHead className="p-3">Language</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {words.map((word) => (
-              <tr className="border-t" key={word.id}>
-                <td className="p-3 font-medium">
+              <TableRow className="border-t" key={word.id}>
+                <TableCell className="p-3 font-medium">
                   {word.displayForm}
                   {word.pronunciation ? <span className="ml-2 text-xs font-normal text-muted-foreground">[{word.pronunciation}]</span> : null}
                   {word.japanese?.kana ? <span className="ml-2 text-muted-foreground">{word.japanese.kana}</span> : null}
-                </td>
-                <td className="p-3">{word.translations.map((t) => t.text).join(", ")}</td>
-                <td className="p-3">{word.language.name}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="p-3">{word.translations.map((t) => t.text).join(", ")}</TableCell>
+                <TableCell className="p-3">{word.language.name}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateKey, displayedRemaining, oppositePhase, safeTimezone, secondsForPhase, shiftDateKey, wholeSecondEnd } from "@/lib/timer";
+import { dateKey, displayedRemaining, isStaleStoppedTimer, oppositePhase, safeTimezone, secondsForPhase, shiftDateKey, wholeSecondEnd } from "@/lib/timer";
 
 describe("timer helpers", () => {
   it("calculates durations and phase transitions", () => {
@@ -22,6 +22,13 @@ describe("timer helpers", () => {
 
   it("falls back for invalid timezones", () => {
     expect(safeTimezone("not/a-zone")).toBe("UTC");
+  });
+
+  it("resets a stopped timer after the user's local day changes", () => {
+    const now = new Date("2026-07-15T08:00:00.000Z");
+    expect(isStaleStoppedTimer({ isRunning: false, updatedAt: new Date("2026-07-14T20:00:00.000Z") }, "Europe/Budapest", now)).toBe(true);
+    expect(isStaleStoppedTimer({ isRunning: false, updatedAt: new Date("2026-07-15T06:00:00.000Z") }, "Europe/Budapest", now)).toBe(false);
+    expect(isStaleStoppedTimer({ isRunning: true, updatedAt: new Date("2026-07-14T20:00:00.000Z") }, "Europe/Budapest", now)).toBe(false);
   });
 
   it("carries fractional reconciliation time into the next credit", () => {

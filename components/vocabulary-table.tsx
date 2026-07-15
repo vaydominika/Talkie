@@ -6,6 +6,11 @@ import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 export type VocabularyTableWord = {
   id: string;
@@ -74,7 +79,7 @@ export function VocabularyTable({
   const action = editing ? updateAction : addAction;
 
   return (
-    <section className="animate-panel-in space-y-4">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h3 className="text-lg font-medium">{title}</h3>
@@ -82,7 +87,7 @@ export function VocabularyTable({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {syncControls}
-          <Button onClick={openAdd} className="bg-rose-600 hover:bg-rose-700 text-white">
+          <Button onClick={openAdd} className="bg-primary hover:bg-primary text-primary-foreground">
             + Add Word
           </Button>
         </div>
@@ -95,29 +100,27 @@ export function VocabularyTable({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left">
-              <tr>
-                <th className="p-3">Word</th>
-                <th className="p-3">Meaning</th>
-                <th className="p-3 text-right">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted text-left">
+              <TableRow>
+                <TableHead className="p-3">Word</TableHead>
+                <TableHead className="p-3">Meaning</TableHead>
+                <TableHead className="p-3 text-right">
                   <label className="inline-flex cursor-pointer select-none items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={allSelected}
-                      onChange={(event) => onSetFlashcards(words.map((word) => word.id), event.target.checked)}
-                      className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                      onCheckedChange={(checked) => onSetFlashcards(words.map((word) => word.id), checked===true)}
                     />
                     <span>Practice</span>
                   </label>
-                </th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+                <TableHead className="p-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {words.map((word, index) => (
-                <tr key={word.id} className="animate-list-in border-t hover:bg-muted/10" style={{ animationDelay: `${index * 25}ms` }}>
-                  <td className="p-3 font-medium">
+                <TableRow key={word.id} className="border-t hover:bg-muted/10" style={{ animationDelay: `${index * 25}ms` }}>
+                  <TableCell className="p-3 font-medium">
                     <span className="inline-flex items-center gap-2">
                       <span>
                         {word.displayForm}
@@ -126,20 +129,18 @@ export function VocabularyTable({
                       </span>
                       <SpeakButton text={word.displayForm} locale={speechLocale} voiceName={speechVoiceName} provider={speechProvider} />
                     </span>
-                  </td>
-                  <td className="p-3">{meaning(word)}</td>
-                  <td className="p-3 text-right">
+                  </TableCell>
+                  <TableCell className="p-3">{meaning(word)}</TableCell>
+                  <TableCell className="p-3 text-right">
                     <label className="inline-flex cursor-pointer select-none items-center gap-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedIds.has(word.id)}
-                        onChange={() => onToggleFlashcard(word.id)}
-                        className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                        onCheckedChange={() => onToggleFlashcard(word.id)}
                       />
                       <span className="text-xs text-muted-foreground">Practice</span>
                     </label>
-                  </td>
-                  <td className="p-3">
+                  </TableCell>
+                  <TableCell className="p-3">
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" onClick={() => openEdit(word)} className="h-8 px-3">
                         Edit
@@ -150,16 +151,16 @@ export function VocabularyTable({
                         title="Delete word"
                         description={`Delete "${word.displayForm}" from this vocabulary list?`}
                         confirmLabel="Delete word"
-                        buttonClassName="h-8 rounded-md border px-3 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                        buttonClassName="h-8 rounded-md border px-3 text-sm font-medium text-foreground hover:bg-accent/30"
                       >
                         Delete
                       </ConfirmActionForm>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -171,20 +172,22 @@ export function VocabularyTable({
         >
           {!editing && bulkAddAction && (
             <div className="mb-4 inline-flex rounded-md border bg-muted/30 p-1">
-              <button
+              <Button
                 type="button"
                 onClick={() => setMode("basic")}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${mode === "basic" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                variant={mode === "basic" ? "secondary" : "ghost"}
+                size="sm"
               >
                 Basic
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setMode("advanced")}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${mode === "advanced" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                variant={mode === "advanced" ? "secondary" : "ghost"}
+                size="sm"
               >
                 Advanced JSON
-              </button>
+              </Button>
             </div>
           )}
 
@@ -192,23 +195,23 @@ export function VocabularyTable({
             <form action={bulkAddAction} onSubmit={() => setOpen(false)} className="space-y-4">
               <input type="hidden" name="languageId" value={languageId} />
               {groupId && <input type="hidden" name="groupId" value={groupId} />}
-              <label className="block text-sm font-medium">
+              <Label className="block text-sm font-medium">
                 Vocabulary JSON
-                <textarea
+                <Textarea
                   name="vocabularyJson"
                   required
                   rows={10}
                   spellCheck={false}
                   defaultValue={'[\n  { "word": "Haus", "pronunciation": "hows", "meaning": "house" },\n  { "word": "lernen", "pronunciation": "LEHR-nen", "meaning": "to learn" }\n]'}
-                  className="mt-1 w-full rounded-md border bg-background p-3 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-400"
+                  className="mt-1 min-h-56 font-mono text-sm"
                 />
-              </label>
+              </Label>
               <p className="text-xs text-muted-foreground">Use an array of objects. Duplicate words are skipped.</p>
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <PendingSubmitButton pendingLabel="Adding..." className="h-10 rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700">
+                <PendingSubmitButton pendingLabel="Adding..." className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                   Add words
                 </PendingSubmitButton>
               </div>
@@ -220,30 +223,30 @@ export function VocabularyTable({
               {editing ? <input type="hidden" name="wordId" value={editing.id} /> : <input type="hidden" name="id" value={crypto.randomUUID()} />}
               <label className="block text-sm font-medium">
                 Word
-                <input
+                <Input
                   name="word"
                   required
                   autoFocus
                   defaultValue={editing?.displayForm ?? ""}
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+                  className="mt-1"
                 />
               </label>
               <label className="block text-sm font-medium">
                 Meaning
-                <input
+                <Input
                   name="meaning"
                   required
                   defaultValue={editing ? meaning(editing) : ""}
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+                  className="mt-1"
                 />
               </label>
               <label className="block text-sm font-medium">
                 Pronunciation
-                <input
+                <Input
                   name="pronunciation"
                   defaultValue={editing?.pronunciation ?? ""}
                   placeholder="e.g. LEHR-nen"
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+                  className="mt-1"
                 />
               </label>
               {!editing && <input type="hidden" name="addToFlashcards" value="on" />}
@@ -251,7 +254,7 @@ export function VocabularyTable({
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <PendingSubmitButton pendingLabel={editing ? "Saving..." : "Adding..."} className="h-10 rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700">
+                <PendingSubmitButton pendingLabel={editing ? "Saving..." : "Adding..."} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                   {editing ? "Save changes" : "Save word"}
                 </PendingSubmitButton>
               </div>

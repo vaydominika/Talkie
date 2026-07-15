@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { KanaChecker } from "@/components/kana-checker";
 import { KanaFlashcards } from "@/components/kana-flashcards";
+import { Button } from "@/components/ui/button";
 
 type JapaneseTab = "kana" | "flashcards";
 
@@ -28,7 +29,7 @@ export function JapaneseTabs() {
 
   return (
     <div>
-      <div className="mb-6 border-b">
+      <div className="mb-6 flex flex-wrap gap-1 border-b" role="tablist" aria-label="Japanese study sections">
         {tabs.map((item) => (
           <JapaneseTabButton
             key={item.id}
@@ -46,13 +47,18 @@ export function JapaneseTabs() {
 
 function JapaneseTabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
-    <button
+    <Button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      variant="ghost"
+      size="sm"
       onClick={onClick}
-      className={`mr-5 border-b-2 px-1 pb-3 text-sm font-medium ${
-        active ? "border-rose-600 text-rose-700" : "border-transparent text-muted-foreground"
+      className={`h-10 rounded-none border-b-2 bg-transparent px-3 font-medium shadow-none hover:bg-muted/60 ${
+        active ? "border-ring text-foreground hover:text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
       }`}
     >
       {label}
-    </button>
+    </Button>
   );
 }

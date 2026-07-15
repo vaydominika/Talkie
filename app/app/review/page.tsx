@@ -1,6 +1,9 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge as UiBadge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatWeekLabel, getWeekKey, isWeakAttempt, summarizeWeakWords } from "@/lib/vocabulary-review";
 import { getStudyWeek } from "@/lib/study-week";
 import { StudyWeek } from "@/components/study-week";
@@ -129,7 +132,7 @@ export default async function ReviewPage() {
               {attempts.slice(0, 8).map((attempt) => (
                 <div key={attempt.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                   <span>{attempt.displayForm}</span>
-                  <span className={attempt.usedHint ? "text-amber-700" : attempt.correct ? "text-[#4a5b3b]" : "text-rose-700"}>
+                  <span className={attempt.usedHint ? "text-amber-700" : attempt.correct ? "text-success" : "text-foreground"}>
                     {attempt.usedHint ? "Hint used" : attempt.correct ? "Correct" : "Missed"}
                   </span>
                 </div>
@@ -161,57 +164,57 @@ export default async function ReviewPage() {
               No weak review history yet. Missed answers and hint-used answers will collect here.
             </p>
           ) : (
-            <div className="space-y-3">
-              {weeklySections.map((section, index) => {
+            <Accordion type="multiple" defaultValue={weeklySections[0]?[weeklySections[0].weekKey]:[]} className="space-y-3">
+              {weeklySections.map((section) => {
                 const sectionMissed = section.words.reduce((sum, word) => sum + word.missedCount, 0);
                 const sectionHints = section.words.reduce((sum, word) => sum + word.hintUsedCount, 0);
                 return (
-                  <details key={section.weekKey} className="rounded-lg border" open={index === 0}>
-                    <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <AccordionItem key={section.weekKey} value={section.weekKey} className="rounded-lg border px-4">
+                    <AccordionTrigger className="flex-wrap gap-3 py-3 hover:no-underline">
                       <span className="font-medium">{section.weekKey === currentWeekKey ? "This week" : `Week of ${section.label}`}</span>
                       <span className="text-sm text-muted-foreground">
                         {section.words.length} weak words · {sectionMissed} missed · {sectionHints} hint used
                       </span>
-                    </summary>
-                    <div className="overflow-x-auto border-t">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted text-left">
-                          <tr>
-                            <th className="p-3">Word</th>
-                            <th className="p-3">Space</th>
-                            <th className="p-3">Missed</th>
-                            <th className="p-3">Hint used</th>
-                            <th className="p-3">Severity</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3 text-right">Last answer</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                    </AccordionTrigger>
+                    <AccordionContent className="overflow-x-auto border-t pb-0">
+                      <Table className="w-full text-sm">
+                        <TableHeader className="bg-muted text-left">
+                          <TableRow>
+                            <TableHead className="p-3">Word</TableHead>
+                            <TableHead className="p-3">Space</TableHead>
+                            <TableHead className="p-3">Missed</TableHead>
+                            <TableHead className="p-3">Hint used</TableHead>
+                            <TableHead className="p-3">Severity</TableHead>
+                            <TableHead className="p-3">Status</TableHead>
+                            <TableHead className="p-3 text-right">Last answer</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {section.words.map((word) => {
                             const active = activeWeakIds.has(word.vocabularyEntryId);
                             return (
-                              <tr key={word.vocabularyEntryId} className="border-t">
-                                <td className="p-3 font-medium">{word.displayForm}</td>
-                                <td className="p-3 text-muted-foreground">{word.group ? `${word.group} · ${word.language}` : word.language}</td>
-                                <td className="p-3">{word.missedCount}</td>
-                                <td className="p-3">{word.hintUsedCount}</td>
-                                <td className="p-3">
+                              <TableRow key={word.vocabularyEntryId} className="border-t">
+                                <TableCell className="p-3 font-medium">{word.displayForm}</TableCell>
+                                <TableCell className="p-3 text-muted-foreground">{word.group ? `${word.group} · ${word.language}` : word.language}</TableCell>
+                                <TableCell className="p-3">{word.missedCount}</TableCell>
+                                <TableCell className="p-3">{word.hintUsedCount}</TableCell>
+                                <TableCell className="p-3">
                                   <Badge tone={word.severity > 3 ? "red" : word.missedCount > 0 ? "rose" : "amber"}>
                                     {word.severity}
                                   </Badge>
-                                </td>
-                                <td className="p-3">{active ? <Badge tone="rose">Active weak</Badge> : <Badge tone="green">Cleared</Badge>}</td>
-                                <td className="p-3 text-right text-muted-foreground">{word.lastAnswer || "-"}</td>
-                              </tr>
+                                </TableCell>
+                                <TableCell className="p-3">{active ? <Badge tone="rose">Active weak</Badge> : <Badge tone="green">Cleared</Badge>}</TableCell>
+                                <TableCell className="p-3 text-right text-muted-foreground">{word.lastAnswer || "-"}</TableCell>
+                              </TableRow>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
+                        </TableBody>
+                      </Table>
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </Accordion>
           )}
         </CardContent>
       </Card>
@@ -235,9 +238,9 @@ function Badge({ tone, children }: { tone: "amber" | "green" | "red" | "rose"; c
     tone === "amber"
       ? "border-amber-200 bg-amber-50 text-amber-800"
       : tone === "green"
-        ? "border-[#d6dfca] bg-[#e5ebdf] text-[#4a5b3b]"
+        ? "border-success/30 bg-success/15 text-success"
         : tone === "red"
           ? "border-red-200 bg-red-50 text-red-800"
-          : "border-rose-200 bg-rose-50 text-rose-700";
-  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}>{children}</span>;
+          : "border-ring/40 bg-accent/30 text-foreground";
+  return <UiBadge variant="outline" className={className}>{children}</UiBadge>;
 }

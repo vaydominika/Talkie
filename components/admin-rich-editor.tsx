@@ -6,6 +6,8 @@ import TextAlign from "@tiptap/extension-text-align";
 import UnderlineExtension from "@tiptap/extension-underline";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlignCenter,
   AlignLeft,
@@ -60,7 +62,7 @@ export function AdminRichEditor({
       attributes: {
         "aria-label": placeholder,
         class:
-          "prose prose-sm min-h-64 max-w-none rounded-b-2xl p-4 text-stone-900 outline-none focus:ring-2 focus:ring-rose-300 dark:prose-invert dark:text-stone-100",
+          "prose prose-sm min-h-64 max-w-none rounded-b-2xl p-4 text-foreground outline-none focus:ring-2 focus:ring-ring/40 dark:prose-invert dark:text-foreground",
       },
     },
     onUpdate: ({ editor }) => {
@@ -91,19 +93,19 @@ export function AdminRichEditor({
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-stone-800 dark:bg-stone-950">
+    <div className="rounded-lg border border-border bg-background  dark:border-border dark:bg-card">
       <input type="hidden" name={name} value={sourceMode ? sourceHtml : html} />
       <EditorToolbar editor={editor} onToggleSourceMode={toggleSourceMode} sourceMode={sourceMode} />
 
       {sourceMode ? (
-        <textarea
+        <Textarea
           value={sourceHtml}
           onChange={(event) => {
             setSourceHtml(event.target.value);
             setHtml(event.target.value);
           }}
           spellCheck={false}
-          className="min-h-64 w-full rounded-b-2xl bg-background p-4 font-mono text-sm text-stone-900 outline-none focus:ring-2 focus:ring-rose-300 dark:text-stone-100"
+          className="min-h-64 w-full rounded-b-2xl bg-background p-4 font-mono text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/40 dark:text-foreground"
         />
       ) : (
         <EditorContent editor={editor} />
@@ -122,7 +124,7 @@ function EditorToolbar({
   sourceMode: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 p-2 dark:border-stone-800">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border p-2 dark:border-border">
       <ToolbarGroup>
         <ToolbarButton active={editor?.isActive("heading", { level: 2 })} label="Heading 2" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
           <Heading2 className="h-4 w-4" aria-hidden />
@@ -189,21 +191,21 @@ function EditorToolbar({
         </ToolbarButton>
       </ToolbarGroup>
 
-      <button
+      <Button
         type="button"
         onClick={onToggleSourceMode}
-        className={`h-8 rounded-md border border-stone-200 px-3 text-xs font-semibold hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-800 ${
-          sourceMode ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950" : "text-stone-700 dark:text-stone-200"
+        className={`h-8 rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted dark:border-border dark:hover:bg-muted ${
+          sourceMode ? "bg-foreground text-background dark:bg-muted dark:text-foreground" : "text-foreground"
         }`}
       >
         HTML
-      </button>
+      </Button>
     </div>
   );
 }
 
 function ToolbarGroup({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-1 border-r border-stone-200 pr-2 last:border-r-0 dark:border-stone-800">{children}</div>;
+  return <div className="flex items-center gap-1 border-r border-border pr-2 last:border-r-0 dark:border-border">{children}</div>;
 }
 
 function ToolbarButton({
@@ -218,7 +220,7 @@ function ToolbarButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
       key={label}
       type="button"
       title={label}
@@ -226,12 +228,12 @@ function ToolbarButton({
       aria-pressed={active}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-200 dark:hover:bg-stone-800 ${
-        active ? "bg-stone-100 dark:bg-stone-800" : ""
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted dark:border-border dark:text-foreground dark:hover:bg-muted ${
+        active ? "bg-muted dark:bg-muted" : ""
       }`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

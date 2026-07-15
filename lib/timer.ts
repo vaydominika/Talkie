@@ -44,6 +44,10 @@ export function displayedRemaining(timer: Pick<PersonalTimerState | GroupTimerRo
   return Math.max(0, Math.ceil((timer.endsAt.getTime() - now.getTime()) / 1000));
 }
 
+export function isStaleStoppedTimer(timer: Pick<PersonalTimerState, "isRunning" | "updatedAt">, timezone: string, now = new Date()) {
+  return !timer.isRunning && dateKey(timer.updatedAt, timezone) !== dateKey(now, timezone);
+}
+
 export function wholeSecondEnd(start: Date, end: Date) {
   const wholeSeconds = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1_000));
   return new Date(start.getTime() + wholeSeconds * 1_000);
@@ -130,6 +134,30 @@ export async function getPersonalTimer(userId: string) {
 
 export async function reconcilePersonal(userId: string, timezone: string, now = new Date()) {
   let timer = await getPersonalTimer(userId);
+  if (isStaleStoppedTimer(timer, timezone, now)) {
+    const staleSessionId = timer.focusSessionId;
+    const staleUpdatedAt = timer.updatedAt;
+    const reset = await prisma.personalTimerState.updateMany({
+      where: { id: timer.id, isRunning: false, updatedAt: staleUpdatedAt },
+      data: {
+        phase: "FOCUS",
+        remainingSeconds: timer.focusMinutes * 60,
+        phaseStartedAt: null,
+        endsAt: null,
+        creditedUntil: null,
+        focusSessionId: null,
+        activePlanItemId: null,
+        activeLanguageId: null,
+        activeGroupId: null,
+        activeLessonId: null,
+        activeDestination: null,
+        plannedMinutes: null,
+        version: { increment: 1 },
+      },
+    });
+    if (reset.count) await finalizeFocusSession(userId, staleSessionId, "RESET", staleUpdatedAt);
+    timer = await prisma.personalTimerState.findUniqueOrThrow({ where: { id: timer.id } });
+  }
   if (timer.isRunning && timer.endsAt) {
     const intervalEnd = timer.endsAt < now ? timer.endsAt : now;
     if (timer.phase === "FOCUS" && timer.phaseStartedAt) {

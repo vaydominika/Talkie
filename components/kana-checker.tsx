@@ -5,6 +5,9 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { kanaGroups, type KanaCategory, type KanaItem } from "@/lib/kana";
 import { saveKanaAttempt } from "@/lib/kana-review";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Script = "hiragana" | "katakana";
 type Status = "idle" | "correct" | "wrong";
@@ -160,24 +163,24 @@ function KanaDeskHeader({
   onRestart: () => void;
 }) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-[#fbfaf4] p-5 shadow-sm dark:border-stone-800 dark:bg-stone-950 sm:p-7">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-rose-700">Japanese sound desk</p>
+    <section className="rounded-lg border border-border bg-card p-5  dark:border-border dark:bg-card sm:p-7">
+      <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground">Japanese sound desk</p>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-4xl text-stone-900 dark:text-stone-100">Kana sprint.</h1>
+          <h1 className="font-serif text-4xl text-foreground dark:text-foreground">Kana sprint.</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Type romaji, then press Enter or Tab. Green cards are correct; red cards need another try.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="font-mono text-sm text-stone-500">{soundCount} sounds selected</p>
-          <button
+          <p className="font-mono text-sm text-muted-foreground">{soundCount} sounds selected</p>
+          <Button
             type="button"
             onClick={onRestart}
-            className="rounded-md border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:border-stone-700 dark:text-stone-200 dark:hover:bg-stone-800"
+            className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted dark:border-border dark:text-foreground dark:hover:bg-muted"
           >
             Restart
-          </button>
+          </Button>
         </div>
       </div>
       {children}
@@ -201,7 +204,7 @@ function KanaFilters({
   onToggleScript: (script: Script) => void;
 }) {
   return (
-    <div className="mt-6 grid gap-5 border-t border-stone-200 pt-5 sm:grid-cols-2">
+    <div className="mt-6 grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
       <Filter label="Script">
         {scripts.map((script) => (
           <Chip key={script} active={activeScripts.has(script)} onClick={() => onToggleScript(script)}>
@@ -225,7 +228,7 @@ function KanaFilters({
         <Chip active={order === "ordered"} onClick={() => onChangeOrder("ordered")}>
           Ordered
         </Chip>
-        <span className="self-center text-xs text-stone-500">
+        <span className="self-center text-xs text-muted-foreground">
           {order === "random" ? "Click Random again to reshuffle without losing progress." : "Follow the selected chart in sequence."}
         </span>
       </Filter>
@@ -250,32 +253,32 @@ function KanaDrillCard({
 }) {
   const cardClassName =
     card.status === "correct"
-      ? "border-[#82946d] bg-[#a8b99a] text-stone-950"
+      ? "border-success/40 bg-success/20 text-foreground"
       : card.status === "wrong"
-        ? "border-rose-700 bg-rose-600 text-white"
-        : "border-stone-200 bg-stone-900 text-stone-50";
+        ? "border-ring bg-primary text-primary-foreground"
+        : "border-border bg-card text-foreground";
 
   return (
-    <article className={`flex min-h-64 flex-col justify-between rounded-2xl border p-4 shadow-sm transition-colors ${cardClassName}`}>
+    <article className={`flex min-h-64 flex-col justify-between rounded-lg border p-4  transition-colors ${cardClassName}`}>
       <div className="flex justify-end gap-1">
         {hasStrokeOrder ? (
-          <button
+          <Button
             type="button"
             onClick={() => onShowStrokeOrder(card.item.kana)}
             aria-label={`Show ${card.item.kana} stroke order`}
-            className="rounded p-1.5 text-base hover:bg-white/10"
+            className="rounded p-1.5 text-base hover:bg-background/10"
           >
             書
-          </button>
+          </Button>
         ) : null}
-        <button
+        <Button
           type="button"
           onClick={() => onUpdate(card.id, { revealed: !card.revealed })}
           aria-label={card.revealed ? "Hide answer" : "Show answer"}
-          className="rounded p-1.5 hover:bg-white/10"
+          className="rounded p-1.5 hover:bg-background/10"
         >
           {card.revealed ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
+        </Button>
       </div>
 
       <p className="text-center text-6xl sm:text-7xl">{card.item.kana}</p>
@@ -284,7 +287,7 @@ function KanaDrillCard({
         <label className="sr-only" htmlFor={card.id}>
           Romaji for {card.item.kana}
         </label>
-        <input
+        <Input
           id={card.id}
           value={card.value}
           onChange={(event) => onUpdate(card.id, { value: event.target.value, status: "idle" })}
@@ -297,7 +300,7 @@ function KanaDrillCard({
           autoComplete="off"
           spellCheck={false}
           disabled={card.status === "correct"}
-          className="h-12 w-full rounded-lg border bg-white px-3 text-center font-mono text-lg text-stone-900 outline-none focus:ring-2 focus:ring-rose-300 disabled:cursor-default"
+          className="h-12 text-center font-mono text-lg disabled:cursor-default"
         />
         {card.revealed ? (
           <p className="mt-2 animate-answer-reveal text-center font-mono text-sm font-semibold motion-reduce:animate-none">
@@ -314,14 +317,7 @@ function KanaDrillCard({
 
 function StrokeOrderDialog({ imageUrl, kana, onClose }: { imageUrl: string; kana: string; onClose: () => void }) {
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{kana} stroke order</h2>
-          <button onClick={onClose} className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted">
-            Close
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open)=>{if(!open)onClose()}}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{kana} stroke order</DialogTitle></DialogHeader>
         <Image
           src={imageUrl}
           alt={`Stroke order for ${kana}`}
@@ -330,15 +326,14 @@ function StrokeOrderDialog({ imageUrl, kana, onClose }: { imageUrl: string; kana
           unoptimized
           className="mx-auto mt-5 h-auto max-h-[65vh] w-auto rounded-lg"
         />
-      </div>
-    </div>
+    </DialogContent></Dialog>
   );
 }
 
 function Filter({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-stone-500">{label}</p>
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -346,16 +341,16 @@ function Filter({ label, children }: { label: string; children: React.ReactNode 
 
 function Chip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full border px-3 py-1.5 text-sm ${
-        active ? "border-rose-600 bg-rose-600 text-white" : "border-stone-300 bg-white text-stone-700"
+        active ? "border-ring bg-primary text-primary-foreground" : "border-border bg-background text-foreground"
       }`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -367,7 +362,7 @@ function toggleSetValue<T>(current: Set<T>, value: T) {
 }
 
 function statusTextClassName(status: Status) {
-  if (status === "correct") return "text-stone-800";
-  if (status === "wrong") return "text-rose-100";
+  if (status === "correct") return "text-foreground";
+  if (status === "wrong") return "text-foreground";
   return "text-transparent";
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const localeFallbacks: Record<string, string> = {
   de: "de-DE",
@@ -65,22 +67,22 @@ export function VoiceSelect({
     <label className="block text-sm font-medium">
       Voice
       <div className="mt-1 flex gap-2">
-        <select
+        <Select
           name={name}
           value={value}
-          onChange={(event) => setValue(event.target.value)}
-          className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-300"
+          onValueChange={setValue}
         >
-          <option value="">Auto voice</option>
+          <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Auto voice"/></SelectTrigger><SelectContent>
           {matchingVoices.map((voice) => (
-            <option key={`${voice.name}-${voice.lang}`} value={voice.name}>
+            <SelectItem key={`${voice.name}-${voice.lang}`} value={voice.name}>
               {voice.name} ({voice.lang})
-            </option>
+            </SelectItem>
           ))}
-        </select>
-        <button type="button" onClick={preview} className="rounded-md border px-3 text-sm font-medium hover:bg-muted">
+          </SelectContent>
+        </Select>
+        <Button type="button" variant="outline" onClick={preview}>
           Preview
-        </button>
+        </Button>
       </div>
       <span className="mt-1 block text-xs text-muted-foreground">
         Voice list depends on this browser and device.

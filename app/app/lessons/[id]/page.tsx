@@ -66,7 +66,7 @@ function LessonBlock({ block }: { block: { title: string | null; content: string
     <section>
       {block.title ? <h2 className="font-semibold">{block.title}</h2> : null}
       {richHtml ? (
-        <div className="prose prose-stone mt-2 max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: block.content }} />
+        <div className="prose prose-neutral mt-2 max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: block.content }} />
       ) : (
         <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{block.content}</p>
       )}

@@ -4,6 +4,8 @@ import type { Route } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { GroupTabs } from "@/components/group-tabs";
 import { GroupTimerJoin } from "@/components/group-timer-join";
@@ -175,7 +177,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href={"/app/groups" as Route} className="text-xs font-semibold text-rose-600 hover:underline">
+          <Link href={"/app/groups" as Route} className="text-xs font-semibold text-destructive hover:underline">
             &larr; Back to Groups
           </Link>
           <h1 className="text-3xl font-bold mt-1">{group.name}</h1>
@@ -183,10 +185,10 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Invite Code card */}
-        <Card className="bg-[#fbfaf4] border-rose-100 dark:bg-stone-900/50">
+        <Card className="bg-card border-ring/20 dark:bg-card">
           <CardContent className="p-4 flex flex-col items-center">
             <span className="text-xs uppercase font-semibold text-muted-foreground">Invite Code</span>
-            <span className="text-2xl font-mono font-bold text-rose-700 tracking-wider mt-1">
+            <span className="text-2xl font-mono font-bold text-foreground tracking-wider mt-1">
               {group.inviteCode}
             </span>
             <p className="text-[10px] text-muted-foreground mt-1">Share this code with others to invite them</p>
@@ -204,13 +206,13 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
             <input type="hidden" name="groupId" value={group.id} />
             <label className="text-sm font-medium">
               Name
-              <input name="name" defaultValue={group.name} required className="mt-1 h-10 w-full rounded-md border bg-background px-3" />
+              <Input name="name" defaultValue={group.name} required className="mt-1" />
             </label>
             <label className="text-sm font-medium">
               Description
-              <input name="description" defaultValue={group.description ?? ""} className="mt-1 h-10 w-full rounded-md border bg-background px-3" />
+              <Input name="description" defaultValue={group.description ?? ""} className="mt-1" />
             </label>
-            <button className="self-end rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700">Save group</button>
+            <Button className="self-end rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save group</Button>
           </form>
           <ConfirmActionForm
             action={deleteGroup}
@@ -219,7 +221,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
             description={`Delete ${group.name}? This cannot be undone.`}
             confirmLabel="Delete group"
             className="self-end"
-            buttonClassName="rounded-md border px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            buttonClassName="rounded-md border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
           >
             Delete group
           </ConfirmActionForm>

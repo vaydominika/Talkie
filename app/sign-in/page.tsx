@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default async function SignInPage() {
   async function submit(formData: FormData) {
@@ -18,41 +23,30 @@ export default async function SignInPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-6">
-      <div className="w-full space-y-4 rounded-lg border p-6">
-        <h1 className="text-2xl font-semibold">Sign in</h1>
+    <main className="relative mx-auto flex min-h-svh max-w-md items-center px-6 py-12"><div className="absolute right-6 top-6"><ModeToggle/></div>
+      <Card className="w-full">
+        <CardHeader><CardTitle className="text-2xl">Welcome back</CardTitle><CardDescription>Continue your study thread.</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
         <form action={signInWithGoogle}>
           <Button className="w-full" variant="outline">
             Continue with Google
           </Button>
         </form>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground"><Separator className="flex-1" />or<Separator className="flex-1" /></div>
         <form action={submit} className="space-y-4">
-          <label className="block text-sm">
-            Email
-            <input
-              className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+          <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email"
               name="email"
               type="email"
               required
               autoComplete="email"
-            />
-          </label>
-          <label className="block text-sm">
-            Password
-            <input
-              className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+            /></div>
+          <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password"
               name="password"
               type="password"
               required
               minLength={8}
               autoComplete="current-password"
-            />
-          </label>
+            /></div>
           <Button className="w-full">Sign in</Button>
         </form>
         <p className="text-sm text-muted-foreground">
@@ -61,7 +55,8 @@ export default async function SignInPage() {
             Create an account
           </Link>
         </p>
-      </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

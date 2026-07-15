@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { prisma } from "@/lib/prisma";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default async function SignUpPage() {
   async function submit(formData: FormData) {
@@ -35,32 +39,21 @@ export default async function SignUpPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-6">
-      <form action={submit} className="w-full space-y-4 rounded-lg border p-6">
-        <h1 className="text-2xl font-semibold">Create an account</h1>
-        <label className="block text-sm">
-          Name
-          <input className="mt-1 flex h-10 w-full rounded-md border bg-background px-3" name="name" required />
-        </label>
-        <label className="block text-sm">
-          Email
-          <input
-            className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+    <main className="relative mx-auto flex min-h-svh max-w-md items-center px-6 py-12"><div className="absolute right-6 top-6"><ModeToggle/></div>
+      <Card className="w-full"><CardHeader><CardTitle className="text-2xl">Create an account</CardTitle><CardDescription>Start with one focused learning plan.</CardDescription></CardHeader><CardContent>
+      <form action={submit} className="space-y-4">
+        <div className="space-y-2"><Label htmlFor="name">Name</Label><Input id="name" name="name" required /></div>
+        <div className="space-y-2"><Label htmlFor="signup-email">Email</Label><Input id="signup-email"
             name="email"
             type="email"
             required
-          />
-        </label>
-        <label className="block text-sm">
-          Password
-          <input
-            className="mt-1 flex h-10 w-full rounded-md border bg-background px-3"
+          /></div>
+        <div className="space-y-2"><Label htmlFor="signup-password">Password</Label><Input id="signup-password"
             name="password"
             type="password"
             minLength={8}
             required
-          />
-        </label>
+          /></div>
         <Button className="w-full">Create account</Button>
         <p className="text-sm text-muted-foreground">
           Already have one?{" "}
@@ -68,7 +61,7 @@ export default async function SignUpPage() {
             Sign in
           </Link>
         </p>
-      </form>
+      </form></CardContent></Card>
     </main>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 
 type CreateGroupAction = (formData: FormData) => Promise<void>;
 type Language = { id: string; code: string; name: string; nativeName: string };
@@ -64,20 +66,20 @@ export function CreateGroupForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium text-muted-foreground">
           Group name
-          <input
+          <Input
             type="text"
             name="name"
             required
             placeholder="e.g. Japanese study circle"
-            className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+            className="mt-1"
           />
         </label>
         <label className="block text-sm font-medium text-muted-foreground">
           Description
-          <input
+          <Input
             name="description"
             placeholder="Optional"
-            className="mt-1 h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-rose-400"
+            className="mt-1"
           />
         </label>
       </div>
@@ -90,13 +92,11 @@ export function CreateGroupForm({
           <div className="grid gap-2 sm:grid-cols-2">
             {languages.map((language) => (
               <label key={language.id} className="flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   name="languageIds"
                   value={language.id}
                   checked={selectedLanguageIds.has(language.id)}
-                  onChange={() => setSelectedLanguageIds((current) => toggleSet(current, language.id))}
-                  className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                  onCheckedChange={() => setSelectedLanguageIds((current) => toggleSet(current, language.id))}
                 />
                 <span>
                   <span className="font-medium">{language.name}</span>
@@ -121,12 +121,11 @@ export function CreateGroupForm({
                 const disabled = !selectedLanguageIds.has(language.id);
                 return (
                   <label key={language.id} className="flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={!disabled && importLanguageIds.has(language.id)}
                       disabled={disabled}
-                      onChange={() => setImportLanguageIds((current) => toggleSet(current, language.id))}
-                      className="mt-1 rounded border-gray-300 text-rose-600 focus:ring-rose-500 disabled:opacity-50"
+                      onCheckedChange={() => setImportLanguageIds((current) => toggleSet(current, language.id))}
+                      className="mt-1"
                     />
                     <span>
                       <span className="font-medium">
@@ -147,7 +146,7 @@ export function CreateGroupForm({
       <PendingSubmitButton
         disabled={languages.length === 0}
         pendingLabel="Creating..."
-        className="h-10 w-full rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700"
+        className="h-10 w-full rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
       >
         Create group
       </PendingSubmitButton>

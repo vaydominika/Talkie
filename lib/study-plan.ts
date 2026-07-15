@@ -35,7 +35,7 @@ function reviewCandidate(
 }
 
 export async function getStudyPlanReplacementOptions(userId: string, now = new Date()): Promise<StudyPlanReplacement[]> {
-  const [dueStates, attempts, lessons, languages] = await Promise.all([
+  const [dueStates, attempts, lessons] = await Promise.all([
     prisma.flashcardReviewState.findMany({
       where: {
         userId,
@@ -51,7 +51,6 @@ export async function getStudyPlanReplacementOptions(userId: string, now = new D
       include: { unit: { include: { course: { include: { language: true } } } } },
       orderBy: [{ unit: { position: "asc" } }, { position: "asc" }],
     }),
-    prisma.language.findMany({ where: { users: { some: { userId } } }, orderBy: { name: "asc" } }),
   ]);
 
   const options: StudyPlanReplacement[] = [];
@@ -93,19 +92,6 @@ export async function getStudyPlanReplacementOptions(userId: string, now = new D
       context: language.name,
       href: `/app/lessons/${lesson.id}`,
       referenceId: lesson.id,
-      metadata: { languageId: language.id },
-    });
-  }
-
-  for (const language of languages) {
-    options.push({
-      id: `listening:${language.id}`,
-      type: "LISTENING",
-      title: `${language.name} listening`,
-      description: "Listen, repeat, and shadow a short phrase.",
-      context: language.name,
-      href: `/app/listening?language=${language.id}`,
-      referenceId: language.id,
       metadata: { languageId: language.id },
     });
   }

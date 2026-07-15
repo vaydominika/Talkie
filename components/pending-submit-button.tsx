@@ -3,6 +3,7 @@
 import { ButtonHTMLAttributes, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export function PendingSubmitButton({
   children,
@@ -17,7 +18,7 @@ export function PendingSubmitButton({
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       {...props}
       type="submit"
       disabled={disabled || pending}
@@ -29,6 +30,6 @@ export function PendingSubmitButton({
     >
       {pending && <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
       {pending ? pendingLabel : children}
-    </button>
+    </Button>
   );
 }

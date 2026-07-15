@@ -67,18 +67,18 @@ export default async function GroupsPage() {
       <div className="space-y-4">
           <h2 className="text-xl font-semibold">Your Groups</h2>
           {memberships.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center bg-muted/20">
+            <div className="rounded-lg border border-dashed p-8 text-center bg-muted/20">
               <p className="text-muted-foreground">You are not in any study groups yet.</p>
               <p className="text-xs text-muted-foreground mt-1">Create one or join using an invite code!</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {memberships.map((m) => (
-                <Card key={m.group.id} className="hover:border-rose-300 transition-colors">
+                <Card key={m.group.id} className="hover:border-ring/60 transition-colors">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start gap-2">
                       <CardTitle className="text-lg font-bold leading-tight">{m.group.name}</CardTitle>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-accent/30 text-foreground dark:bg-accent/10 dark:text-ring">
                         {m.role}
                       </span>
                     </div>

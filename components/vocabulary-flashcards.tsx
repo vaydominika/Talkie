@@ -3,6 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SpeakButton } from "@/components/speak-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge as UiBadge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { summarizeWeakWords, type ReviewAttemptLike } from "@/lib/vocabulary-review";
 
 type Word = {
@@ -101,6 +105,7 @@ export function VocabularyFlashcards({
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState<"idle" | "correct" | "wrong">("idle");
   const [revealed, setRevealed] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const practiceWords = useMemo(
     () => studyMode === "weak" ? selectedWords.filter((word) => weakWordIds.has(word.id)) : studyMode === "due" ? selectedWords.filter((word)=>dueIds.has(word.id)) : selectedWords,
     [selectedWords, studyMode, weakWordIds, dueIds],
@@ -161,7 +166,6 @@ export function VocabularyFlashcards({
 
   const clearReviewHistory = () => {
     if (resetAttemptsAction && languageId) {
-      if (!window.confirm("Clear review history for this deck? This removes missed and hint-used attempt history.")) return;
       const formData = new FormData();
       formData.append("languageId", languageId);
       if (groupId) formData.append("groupId", groupId);
@@ -269,19 +273,19 @@ export function VocabularyFlashcards({
         <Toggle active={randomOrder} onClick={() => rebuild(direction, !randomOrder)}>
           {randomOrder ? "Random order" : "Ordered"}
         </Toggle>
-        <button type="button" onClick={restartDeck} className="rounded-full border border-stone-500 bg-white px-3 py-1.5 text-sm font-medium text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+        <Button type="button" variant="outline" onClick={restartDeck} className="rounded-full px-3 py-1.5 text-sm font-medium">
           Restart deck
-        </button>
+        </Button>
         {resetAttemptsAction && languageId ? (
-          <button type="button" onClick={clearReviewHistory} className="rounded-full border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:bg-stone-900 dark:hover:bg-rose-950/30">
+          <Button type="button" variant="outline" onClick={() => setClearConfirmOpen(true)} className="rounded-full">
             Clear review history
-          </button>
+          </Button>
         ) : null}
       </div>
 
-      <section className="animate-panel-in mx-auto max-w-xl rounded-lg border bg-[#fbfaf4] p-6 text-center shadow-sm dark:bg-stone-950">
+      <section className="mx-auto max-w-xl rounded-lg border border-ring bg-accent p-6 text-center text-accent-foreground">
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-700">Vocabulary sprint</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent-foreground">Vocabulary sprint</p>
           {studyMode === "weak" ? <Badge tone="rose">Weak</Badge> : null}
           {weakSummary?.carriedOver ? <Badge tone="stone">Carried over</Badge> : null}
         </div>
@@ -293,16 +297,16 @@ export function VocabularyFlashcards({
           </div>
         ) : null}
         <div className="mt-8 flex items-center justify-center gap-3">
-          <p className="text-5xl font-semibold text-stone-900 dark:text-stone-100">{prompt}</p>
+          <p className="text-5xl font-semibold text-accent-foreground">{prompt}</p>
           {card?.direction === "target-native" && card.word.displayForm && (
-            <SpeakButton text={card.word.displayForm} locale={activeSpeechLocale} voiceName={activeSpeechVoiceName} provider={activeSpeechProvider} className="h-9 w-9 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-800" />
+            <SpeakButton text={card.word.displayForm} locale={activeSpeechLocale} voiceName={activeSpeechVoiceName} provider={activeSpeechProvider} className="h-9 w-9 border-ring text-accent-foreground" />
           )}
         </div>
-        {card?.direction === "target-native" && card.word.japanese?.kana && <p className="mt-2 text-lg text-muted-foreground">{card.word.japanese.kana}</p>}
-        {helper && <p className="mt-3 text-sm font-medium text-muted-foreground">[{helper}]</p>}
+        {card?.direction === "target-native" && card.word.japanese?.kana && <p className="mt-2 text-lg text-accent-foreground/70">{card.word.japanese.kana}</p>}
+        {helper && <p className="mt-3 text-sm font-medium text-accent-foreground/70">[{helper}]</p>}
 
         <form onSubmit={submit} className="mt-7">
-          <input
+          <Input
             value={answer}
             onChange={(event) => {
               setAnswer(event.target.value);
@@ -311,32 +315,33 @@ export function VocabularyFlashcards({
             autoFocus
             autoComplete="off"
             spellCheck={false}
-            className={`h-14 w-full rounded-lg border bg-white px-4 text-center font-mono text-xl text-stone-900 outline-none transition focus:ring-2 ${
+            className={`h-14 border-ring! bg-background/90 text-center font-mono text-xl ${
               status === "correct"
-                ? "border-[#82946d] bg-[#e5ebdf] focus:ring-[#a8b99a]"
+                ? "bg-success/15 focus:ring-success/30"
                 : status === "wrong"
-                  ? "border-rose-500 bg-rose-50 focus:ring-rose-300"
-                  : "focus:ring-rose-300"
+                  ? "bg-destructive/10 focus:ring-destructive/30"
+                  : "focus:ring-ring/40"
             }`}
           />
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <button type="button" onClick={() => setRevealed((value) => !value)} className="rounded-md border border-stone-500 bg-white px-3 py-2 text-sm font-medium text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+            <Button type="button" variant="outline" onClick={() => setRevealed((value) => !value)} className="rounded-md px-3 py-2 text-sm font-medium">
               {revealed ? "Hide answer" : "Reveal answer"}
-            </button>
-            {status !== "idle" && rateReviewAction && <div><div className="flex flex-wrap justify-center gap-2">{(["AGAIN","HARD","GOOD","EASY"] as const).map(rating=><button disabled={ratingState.busy} key={rating} type="button" onClick={()=>rateCard(rating)} className={`rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50 ${rating==="AGAIN"?"bg-rose-100 text-rose-700":rating==="HARD"?"bg-amber-100 text-amber-800":rating==="EASY"?"bg-emerald-100 text-emerald-800":"bg-indigo-100 text-indigo-800"}`}>{rating[0]+rating.slice(1).toLowerCase()}</button>)}</div>{ratingState.message&&<p className="mt-2 text-center text-xs text-emerald-700" aria-live="polite">{ratingState.message}</p>}{ratingState.error&&<p className="mt-2 text-center text-xs text-rose-700" role="alert">{ratingState.error}</p>}</div>}
-            <button type="button" onClick={next} className="rounded-md border border-stone-500 bg-white px-3 py-2 text-sm font-medium text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+            </Button>
+            {status !== "idle" && rateReviewAction && <div><div className="flex flex-wrap justify-center gap-2">{(["AGAIN","HARD","GOOD","EASY"] as const).map(rating=><Button disabled={ratingState.busy} key={rating} type="button" variant={rating==="AGAIN"?"destructive":rating==="GOOD"?"accent":"secondary"} size="sm" onClick={()=>rateCard(rating)}>{rating[0]+rating.slice(1).toLowerCase()}</Button>)}</div>{ratingState.message&&<p className="mt-2 text-center text-xs text-emerald-700" aria-live="polite">{ratingState.message}</p>}{ratingState.error&&<p className="mt-2 text-center text-xs text-destructive" role="alert">{ratingState.error}</p>}</div>}
+            <Button type="button" variant="outline" onClick={next} className="rounded-md px-3 py-2 text-sm font-medium">
               Skip
-            </button>
+            </Button>
           </div>
-          {revealed && <p className="mt-3 animate-answer-reveal font-mono text-sm font-semibold text-rose-700">{expected}</p>}
-          <p className={`mt-3 min-h-5 text-sm font-medium ${status === "correct" ? "text-[#4a5b3b]" : status === "wrong" ? "text-rose-600" : "text-transparent"}`}>
+          {revealed && <p className="mt-3 animate-answer-reveal font-mono text-sm font-semibold text-accent-foreground">{expected}</p>}
+          <p className={`mt-3 min-h-5 text-sm font-medium ${status === "correct" ? "text-success" : status === "wrong" ? "text-destructive" : "text-transparent"}`}>
             {status === "correct" ? "Correct. Press Enter again for the next card." : "Try again, or press Enter again for the next card."}
           </p>
         </form>
-        <p className="mt-6 text-xs text-muted-foreground">
+        <p className="mt-6 text-xs text-accent-foreground/70">
           {index + 1} / {deck.length} {studyMode === "weak" ? "weak" : studyMode === "due" ? "due" : "selected"} words
         </p>
       </section>
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Clear review history?</AlertDialogTitle><AlertDialogDescription>This removes missed and hint-used attempt history for this deck. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction asChild><Button variant="destructive" onClick={()=>{setClearConfirmOpen(false);clearReviewHistory()}}>Clear history</Button></AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
 }
@@ -348,25 +353,22 @@ function Badge({ tone, children }: { tone: "amber" | "rose" | "red" | "stone"; c
       : tone === "red"
         ? "border-red-200 bg-red-50 text-red-800"
         : tone === "stone"
-          ? "border-stone-300 bg-stone-100 text-stone-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
-          : "border-rose-200 bg-rose-50 text-rose-700";
+          ? "border-border bg-muted text-foreground dark:border-border dark:bg-card dark:text-foreground"
+          : "border-ring/40 bg-accent/30 text-foreground";
 
-  return <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}>{children}</span>;
+  return <UiBadge variant="outline" className={className}>{children}</UiBadge>;
 }
 
 function Toggle({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-        active
-          ? "border-rose-600 bg-rose-600 text-white"
-          : "border-stone-500 bg-white text-stone-900 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
-      }`}
+      variant={active ? "accent" : "outline"}
+      className="rounded-full px-3 py-1.5 text-sm font-medium"
     >
       {children}
-    </button>
+    </Button>
   );
 }

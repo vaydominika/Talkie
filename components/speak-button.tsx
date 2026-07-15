@@ -3,6 +3,7 @@
 import { Loader2, Volume2 } from "lucide-react";
 import { ButtonHTMLAttributes, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const localeFallbacks: Record<string, string> = {
   de: "de-DE",
@@ -142,19 +143,21 @@ export function SpeakButton({
   };
 
   return (
-    <button
+    <Button
       {...props}
       type="button"
+      variant="outline"
+      size="icon-xs"
       onClick={speak}
       disabled={loading || props.disabled}
       aria-label={`Play pronunciation for ${text}`}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-full border text-muted-foreground transition hover:bg-muted hover:text-foreground dark:text-stone-400 dark:hover:text-stone-200 dark:border-stone-800",
+        "size-7 rounded-full bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
         className,
       )}
     >
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Volume2 className="h-3.5 w-3.5" aria-hidden />}
-    </button>
+    </Button>
   );
 }
 

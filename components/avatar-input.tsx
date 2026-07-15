@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserAvatar } from "@/components/user-avatar";
+import { Button } from "@/components/ui/button";
 
 export function AvatarInput({ initialImage, name, email }: { initialImage?: string | null; name?: string | null; email: string }) {
   const [image, setImage] = useState(initialImage ?? "");
@@ -34,7 +35,7 @@ export function AvatarInput({ initialImage, name, email }: { initialImage?: stri
       <UserAvatar name={name} email={email} image={image} size="lg" />
       <div className="space-y-2">
         <input type="hidden" name="image" value={image} />
-        <label className="inline-flex cursor-pointer rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Button asChild variant="outline"><label className="cursor-pointer">
           Upload avatar
           <input
             type="file"
@@ -42,11 +43,11 @@ export function AvatarInput({ initialImage, name, email }: { initialImage?: stri
             className="sr-only"
             onChange={(event) => handleFile(event.target.files?.[0])}
           />
-        </label>
+        </label></Button>
         {image && (
-          <button type="button" onClick={() => setImage("")} className="block text-xs text-muted-foreground hover:text-foreground">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setImage("")} className="h-auto px-0 text-xs text-muted-foreground">
             Remove avatar
-          </button>
+          </Button>
         )}
       </div>
     </div>

@@ -65,7 +65,6 @@ enum StudyPlanItemType {
   DUE_REVIEW
   WEAK_WORDS
   LESSON
-  LISTENING
   FREE_FOCUS
 }
 
@@ -113,7 +112,6 @@ enum QuestType {
   DUE_REVIEWS
   WEAK_WORDS
   LESSON_PROGRESS
-  LISTENING_ROUNDS
   ACCURACY
   FOCUS_MINUTES
 }
@@ -182,7 +180,6 @@ model User {
   groupInvitationsReceived GroupInvitation[]              @relation("GroupInvitationRecipient")
   timerInvitationsSent     GroupTimerInvitation[]         @relation("TimerInvitationSender")
   timerInvitationsReceived GroupTimerInvitation[]         @relation("TimerInvitationRecipient")
-  listeningActivities      ListeningActivity[]
   dailyQuests              DailyQuest[]
   dailyQuestSets           DailyQuestSet[]
   questEvents              QuestEvent[]
@@ -259,7 +256,6 @@ model FocusStudySession {
   group               Group?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
   planItem            StudyPlanItem?      @relation(fields: [planItemId], references: [id], onDelete: SetNull)
   lesson              Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  listeningActivities ListeningActivity[]
 
   @@unique([userId, sessionKey])
   @@index([userId, dateKey, startedAt])
@@ -294,7 +290,6 @@ model StudyPlanItem {
   metadata            Json?
   plan                StudyPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
   focusSessions       FocusStudySession[]
-  listeningActivities ListeningActivity[]
 
   @@unique([planId, position])
 }
@@ -350,7 +345,6 @@ model Language {
   vocabularyAttempts  VocabularyReviewAttempt[]
   focusStudySessions  FocusStudySession[]
   studyPlans          StudyPlan[]
-  listeningActivities ListeningActivity[]
 }
 
 model LanguageTab {
@@ -753,27 +747,6 @@ model GroupTimerInvitation {
 
   @@index([inviteeId, status, expiresAt])
   @@index([inviterId, status])
-}
-
-model ListeningActivity {
-  id             String             @id @default(cuid())
-  userId         String
-  languageId     String
-  dateKey        String
-  timezone       String
-  sourceType     String
-  sourceText     String
-  completionKey  String
-  planItemId     String?
-  focusSessionId String?
-  completedAt    DateTime           @default(now())
-  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  language       Language           @relation(fields: [languageId], references: [id], onDelete: Cascade)
-  planItem       StudyPlanItem?     @relation(fields: [planItemId], references: [id], onDelete: SetNull)
-  focusSession   FocusStudySession? @relation(fields: [focusSessionId], references: [id], onDelete: SetNull)
-
-  @@unique([userId, completionKey])
-  @@index([userId, dateKey])
 }
 
 model DailyQuest {

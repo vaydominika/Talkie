@@ -26,17 +26,17 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-950 text-stone-50 shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-border bg-card text-foreground ">
         <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1.3fr_0.7fr]">
           <div>
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-rose-300">Talkie atelier</p>
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-ring">Talkie atelier</p>
             <h1 className="mt-3 font-serif text-4xl">Content Studio.</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               Create reusable starter templates here. Users import these samples into their own private language spaces.
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-stone-400">Inventory</p>
+          <div className="rounded-lg border border-accent bg-background/5 p-4">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Inventory</p>
             <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
               <Stat label="Languages" value={languages.length} />
               <Stat label="Template vocab" value={templateVocabularyCounts.reduce((sum, item) => sum + item._count._all, 0)} />
@@ -47,7 +47,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
       </section>
 
       <Panel eyebrow="Create" title="Add a template language">
-        <form action={createLanguage} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+        <form action={createLanguage} className="grid gap-3 rounded-lg bg-muted/40 p-4">
           <div className="grid gap-3 sm:grid-cols-6">
             <Field label="Name" name="name" placeholder="Italian" required />
             <Field label="Native name" name="nativeName" placeholder="Italiano" />
@@ -69,7 +69,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
 
       <Panel eyebrow="Database" title="Export or import data">
         <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-2xl bg-muted/40 p-4">
+          <div className="rounded-lg bg-muted/40 p-4">
             <h3 className="text-sm font-semibold">Export current database</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Download a JSON backup with users, languages, vocabulary, groups, review history, and preferences.
@@ -79,9 +79,9 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
             </Button>
           </div>
 
-          <form action={importDatabaseBackup} className="grid gap-3 rounded-2xl border border-rose-100 bg-rose-50/40 p-4 dark:border-rose-950 dark:bg-rose-950/10">
+          <form action={importDatabaseBackup} className="grid gap-3 rounded-lg border border-ring/20 bg-accent/20 p-4 dark:border-ring/30 dark:bg-accent/10">
             <div>
-              <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Import database export</h3>
+              <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Import database export</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 This clears the destination database tables first, then loads the uploaded export.
               </p>
@@ -92,7 +92,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
               </p>
             )}
             {resolvedSearchParams?.dbImport === "failed" && (
-              <p className="rounded-md border border-rose-200 bg-rose-100 p-3 text-sm text-rose-900">
+              <p className="rounded-md border border-ring/40 bg-accent/50 p-3 text-sm text-foreground">
                 Database import failed. The destination data was left unchanged. {resolvedSearchParams.dbImportError}
               </p>
             )}
@@ -107,14 +107,14 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
               />
             </label>
             <Field label='Type "IMPORT" to confirm' name="confirmation" placeholder="IMPORT" required />
-            <Button className="bg-rose-700 text-white hover:bg-rose-800">Import and replace data</Button>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Import and replace data</Button>
           </form>
         </div>
       </Panel>
 
       <section className="grid gap-6 xl:grid-cols-2">
         {languages.map((language) => (
-          <article key={language.id} className="rounded-[1.75rem] border bg-background p-7 shadow-sm">
+          <article key={language.id} className="rounded-lg border bg-background p-7 ">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{language.code}</p>
@@ -134,7 +134,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
               <MiniStat label="Media" value={language._count.media} />
             </dl>
 
-            <form action={updateLanguage} className="mt-5 grid gap-3 rounded-2xl bg-muted/30 p-3">
+            <form action={updateLanguage} className="mt-5 grid gap-3 rounded-lg bg-muted/30 p-3">
               <input type="hidden" name="id" value={language.id} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name" name="name" defaultValue={language.name} required />
@@ -171,7 +171,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="min-w-[5.75rem] flex-1 rounded-xl bg-muted px-4 py-3">
+    <div className="min-w-[5.75rem] flex-1 rounded-lg bg-muted px-4 py-3">
       <dt className="whitespace-nowrap text-[0.6rem] uppercase leading-tight tracking-normal text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-semibold">{value}</dd>
     </div>

@@ -3,7 +3,9 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { AdminRichEditor } from "@/components/admin-rich-editor";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { languageHref } from "@/lib/language-route";
 import { prisma } from "@/lib/prisma";
 import {
@@ -89,7 +91,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           <Link href="/app/admin" className="text-sm text-muted-foreground hover:text-foreground">
             Back to Content Studio
           </Link>
-          <p className="mt-5 font-mono text-xs uppercase tracking-[0.22em] text-rose-700">{language.code}</p>
+          <p className="mt-5 font-mono text-xs uppercase tracking-[0.22em] text-foreground">{language.code}</p>
           <h1 className="font-serif text-4xl">{language.name} template studio</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {language.nativeName} - Manage reusable starter tabs, sample words, lessons, images, and gates.
@@ -102,7 +104,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <Panel eyebrow="Navigation" title="Tabs">
-          <form action={createTab} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createTab} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             <input type="hidden" name="languageId" value={language.id} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Title" name="title" placeholder="Reading" required />
@@ -116,10 +118,10 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           </form>
           <div className="mt-4 space-y-3">
             {language.tabs.map((tab) => (
-              <details key={tab.id} className="rounded-2xl border p-4">
-                <summary className="cursor-pointer font-semibold">
+              <Accordion key={tab.id} type="single" collapsible><AccordionItem value={tab.id} className="rounded-lg border p-4">
+                <AccordionTrigger className="cursor-pointer font-semibold">
                   {tab.position}. {tab.title} <span className="font-normal text-muted-foreground">/{tab.slug}</span>
-                </summary>
+                </AccordionTrigger><AccordionContent>
                 <form action={updateTab} className="mt-4 grid gap-3">
                   <input type="hidden" name="id" value={tab.id} />
                   <div className="grid gap-3 sm:grid-cols-4">
@@ -137,13 +139,13 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                   />
                   <Button variant="outline">Save tab</Button>
                 </form>
-              </details>
+              </AccordionContent></AccordionItem></Accordion>
             ))}
           </div>
         </Panel>
 
         <Panel eyebrow="Starter words" title="Template vocabulary">
-          <form action={createVocabulary} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createVocabulary} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             <input type="hidden" name="languageId" value={language.id} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Word" name="displayForm" placeholder={language.code === "ja" ? "食べる" : "der Tisch"} required />
@@ -166,23 +168,23 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             <Check name="addToFlashcards" label="Add to flashcards" defaultChecked />
             <Button>Add template vocabulary</Button>
           </form>
-          <div className="mt-4 max-h-96 overflow-auto rounded-2xl border">
+          <div className="mt-4 max-h-96 overflow-auto rounded-lg border">
             {duplicateTemplateWordCount > 0 ? (
               <p className="border-b bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 {duplicateTemplateWordCount} duplicate template word{duplicateTemplateWordCount === 1 ? "" : "s"} hidden. New duplicates are blocked.
               </p>
             ) : null}
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background text-left">
-                <tr>
+            <Table className="w-full text-sm">
+              <TableHeader className="sticky top-0 bg-background text-left">
+                <TableRow>
                   <Th>Word</Th>
                   <Th>Meaning</Th>
                   <Th>Meta</Th>
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {templateVocabulary.map((word) => (
-                  <tr key={word.id} className="border-t">
+                  <TableRow key={word.id} className="border-t">
                     <Td>
                       {word.displayForm}
                       {word.pronunciation && <span className="ml-2 text-muted-foreground">[{word.pronunciation}]</span>}
@@ -195,17 +197,17 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                       {word.german?.plural ? ` - plural ${word.german.plural}` : ""}
                       {word.japanese?.romaji ? ` - ${word.japanese.romaji}` : ""}
                     </Td>
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </Panel>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-2">
         <Panel eyebrow="Grammar" title="Lessons">
-          <form action={createGrammarLesson} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createGrammarLesson} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             <input type="hidden" name="languageId" value={language.id} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Title" name="title" placeholder="Particles: は and が" required />
@@ -219,10 +221,10 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             {language.grammar.map((lesson) => {
               const richContent = lesson.richContent as { html?: string } | null;
               return (
-                <details key={lesson.id} className="rounded-2xl border p-4">
-                  <summary className="cursor-pointer font-semibold">
+                <Accordion key={lesson.id} type="single" collapsible><AccordionItem value={lesson.id} className="rounded-lg border p-4">
+                  <AccordionTrigger className="cursor-pointer font-semibold">
                     {lesson.title} <span className="font-normal text-muted-foreground">{lesson.level?.code}</span>
-                  </summary>
+                  </AccordionTrigger><AccordionContent>
                   <form action={updateGrammarLesson} className="mt-4 grid gap-3">
                     <input type="hidden" name="id" value={lesson.id} />
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -233,7 +235,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                     <AdminRichEditor name="richContent" initialHtml={richContent?.html ?? lesson.explanation} />
                     <Button variant="outline">Save lesson</Button>
                   </form>
-                </details>
+                </AccordionContent></AccordionItem></Accordion>
               );
             })}
           </div>
@@ -241,7 +243,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
         <Panel eyebrow="Stroke order" title="Kana and kanji images">
           {language.code === "ja" ? (
-            <form action={createMedia} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+            <form action={createMedia} className="grid gap-3 rounded-lg bg-muted/40 p-4">
               <input type="hidden" name="languageId" value={language.id} />
               <input type="hidden" name="kind" value="STROKE_ORDER" />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -253,13 +255,13 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
               <Button>Add stroke-order image</Button>
             </form>
           ) : (
-            <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
               Stroke-order images are only used for Japanese kana and kanji.
             </p>
           )}
           <div className="mt-4 grid gap-3">
             {language.media.map((asset) => (
-              <div key={asset.id} className="rounded-2xl border p-3 text-sm">
+              <div key={asset.id} className="rounded-lg border p-3 text-sm">
                 <p className="font-medium">
                   {asset.kind}
                   {asset.targetKey ? ` - ${asset.targetKey}` : ""}
@@ -273,7 +275,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
       <Panel eyebrow="Courses" title="Course lessons">
         <div className="grid gap-4 xl:grid-cols-3">
-          <form action={createCourse} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createCourse} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             <input type="hidden" name="languageId" value={language.id} />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <Field label="Course title" name="title" placeholder="Japanese foundations" required />
@@ -285,7 +287,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             <Button>Add course</Button>
           </form>
 
-          <form action={createCourseUnit} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createCourseUnit} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             {courseOptions.length ? (
               <>
                 <Select label="Course" name="courseId" options={courseOptions} />
@@ -298,7 +300,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             )}
           </form>
 
-          <form action={createLesson} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createLesson} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             {unitOptions.length ? (
               <>
                 <Select label="Unit" name="unitId" options={unitOptions} />
@@ -314,12 +316,12 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
         <div className="mt-5 space-y-4">
           {language.courses.map((course) => (
-            <details key={course.id} className="rounded-2xl border p-4">
-              <summary className="cursor-pointer font-semibold">
+            <Accordion key={course.id} type="single" collapsible><AccordionItem value={course.id} className="rounded-lg border p-4">
+              <AccordionTrigger className="cursor-pointer font-semibold">
                 {course.title} <span className="font-normal text-muted-foreground">{course.level.code}</span>
-              </summary>
+              </AccordionTrigger><AccordionContent>
 
-              <form action={updateCourse} className="mt-4 grid gap-3 rounded-2xl bg-muted/30 p-3">
+              <form action={updateCourse} className="mt-4 grid gap-3 rounded-lg bg-muted/30 p-3">
                 <input type="hidden" name="id" value={course.id} />
                 <div className="grid gap-3 sm:grid-cols-4">
                   <Field label="Title" name="title" defaultValue={course.title} required />
@@ -333,12 +335,12 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
               <div className="mt-4 space-y-3">
                 {course.units.map((unit) => (
-                  <details key={unit.id} className="rounded-xl border p-3">
-                    <summary className="cursor-pointer font-medium">
+                  <Accordion key={unit.id} type="single" collapsible><AccordionItem value={unit.id} className="rounded-lg border p-3">
+                    <AccordionTrigger className="cursor-pointer font-medium">
                       {unit.position}. {unit.title}
-                    </summary>
+                    </AccordionTrigger><AccordionContent>
 
-                    <form action={updateCourseUnit} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+                    <form action={updateCourseUnit} className="mt-3 grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
                       <input type="hidden" name="id" value={unit.id} />
                       <Field label="Unit title" name="title" defaultValue={unit.title} required />
                       <Field label="Position" name="position" type="number" defaultValue={unit.position} />
@@ -349,12 +351,12 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
                     <div className="mt-3 space-y-3">
                       {unit.lessons.map((lesson) => (
-                        <details key={lesson.id} className="rounded-xl border p-3">
-                          <summary className="cursor-pointer text-sm font-semibold">
+                        <Accordion key={lesson.id} type="single" collapsible><AccordionItem value={lesson.id} className="rounded-lg border p-3">
+                          <AccordionTrigger className="cursor-pointer text-sm font-semibold">
                             {lesson.position}. {lesson.title} <span className="font-normal text-muted-foreground">{lesson.blocks.length} blocks</span>
-                          </summary>
+                          </AccordionTrigger><AccordionContent>
 
-                          <form action={updateLesson} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+                          <form action={updateLesson} className="mt-3 grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
                             <input type="hidden" name="id" value={lesson.id} />
                             <Field label="Lesson title" name="title" defaultValue={lesson.title} required />
                             <Field label="Position" name="position" type="number" defaultValue={lesson.position} />
@@ -363,7 +365,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                             </Button>
                           </form>
 
-                          <form action={createLessonBlock} className="mt-3 grid gap-3 rounded-xl bg-muted/30 p-3">
+                          <form action={createLessonBlock} className="mt-3 grid gap-3 rounded-lg bg-muted/30 p-3">
                             <input type="hidden" name="lessonId" value={lesson.id} />
                             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
                               <Field label="Block title" name="title" placeholder="Practice note" />
@@ -375,10 +377,10 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
 
                           <div className="mt-3 space-y-3">
                             {lesson.blocks.map((block) => (
-                              <details key={block.id} className="rounded-xl border p-3">
-                                <summary className="cursor-pointer text-sm font-medium">
+                              <Accordion key={block.id} type="single" collapsible><AccordionItem value={block.id} className="rounded-lg border p-3">
+                                <AccordionTrigger className="cursor-pointer text-sm font-medium">
                                   {block.position}. {block.title || "Untitled block"}
-                                </summary>
+                                </AccordionTrigger><AccordionContent>
                                 <form action={updateLessonBlock} className="mt-3 grid gap-3">
                                   <input type="hidden" name="id" value={block.id} />
                                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
@@ -388,35 +390,35 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
                                   <AdminRichEditor name="content" initialHtml={block.content} />
                                   <Button variant="outline">Save block</Button>
                                 </form>
-                              </details>
+                              </AccordionContent></AccordionItem></Accordion>
                             ))}
                             {lesson.blocks.length === 0 ? (
-                              <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No blocks yet.</p>
+                              <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No blocks yet.</p>
                             ) : null}
                           </div>
-                        </details>
+                        </AccordionContent></AccordionItem></Accordion>
                       ))}
                       {unit.lessons.length === 0 ? (
-                        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No lessons yet.</p>
+                        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No lessons yet.</p>
                       ) : null}
                     </div>
-                  </details>
+                  </AccordionContent></AccordionItem></Accordion>
                 ))}
                 {course.units.length === 0 ? (
-                  <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No units yet.</p>
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No units yet.</p>
                 ) : null}
               </div>
-            </details>
+            </AccordionContent></AccordionItem></Accordion>
           ))}
           {language.courses.length === 0 ? (
-            <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">No courses exist for {language.name} yet.</p>
+            <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">No courses exist for {language.name} yet.</p>
           ) : null}
         </div>
       </Panel>
 
       <Panel eyebrow="Progress gates" title="Tests">
         {lessons.length ? (
-          <form action={createLessonTest} className="grid gap-3 rounded-2xl bg-muted/40 p-4">
+          <form action={createLessonTest} className="grid gap-3 rounded-lg bg-muted/40 p-4">
             <Select
               label="Lesson"
               name="lessonId"
@@ -435,7 +437,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
             <Button>Add test question</Button>
           </form>
         ) : (
-          <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+          <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
             No course lessons exist for {language.name} yet.
           </p>
         )}
@@ -443,7 +445,7 @@ export default async function AdminLanguagePage({ params }: { params: Promise<{ 
           {lessons
             .filter((lesson) => lesson.test)
             .map((lesson) => (
-              <div key={lesson.id} className="rounded-2xl border p-4">
+              <div key={lesson.id} className="rounded-lg border p-4">
                 <p className="font-semibold">{lesson.test?.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {lesson.title} - {lesson.test?.questions.length ?? 0} questions - pass at {lesson.test?.requiredScore}%

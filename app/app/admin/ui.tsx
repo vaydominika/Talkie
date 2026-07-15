@@ -1,17 +1,21 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TableCell, TableHead } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+
 export function Panel({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[1.75rem] border border-stone-200 bg-background p-5 shadow-sm dark:border-stone-800">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-rose-700">{eyebrow}</p>
-      <h2 className="mt-1 font-serif text-2xl">{title}</h2>
-      <div className="mt-5">{children}</div>
-    </section>
+    <Card><CardHeader><p className="section-label">{eyebrow}</p><CardTitle>{title}</CardTitle></CardHeader><CardContent>{children}</CardContent></Card>
   );
 }
 
 export function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-white/10 p-3">
-      <dt className="text-[0.65rem] uppercase tracking-[0.16em] text-stone-400">{label}</dt>
+    <div className="rounded-lg bg-background/10 p-3">
+      <dt className="text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-2xl font-semibold">{value}</dd>
     </div>
   );
@@ -33,17 +37,16 @@ export function Field({
   placeholder?: string;
 }) {
   return (
-    <label className="block text-sm font-medium">
-      {label}
-      <input
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input
         name={name}
         type={type}
         required={required}
         defaultValue={defaultValue ?? undefined}
         placeholder={placeholder}
-        className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-300"
       />
-    </label>
+    </div>
   );
 }
 
@@ -61,17 +64,16 @@ export function TextArea({
   placeholder?: string;
 }) {
   return (
-    <label className="block text-sm font-medium">
-      {label}
-      <textarea
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Textarea
         name={name}
         required={required}
         defaultValue={defaultValue ?? undefined}
         placeholder={placeholder}
         rows={3}
-        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-300"
       />
-    </label>
+    </div>
   );
 }
 
@@ -87,20 +89,7 @@ export function Select({
   defaultValue?: string | null;
 }) {
   return (
-    <label className="block text-sm font-medium">
-      {label}
-      <select
-        name={name}
-        defaultValue={defaultValue ?? undefined}
-        className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-300"
-      >
-        {options.map(([value, label]) => (
-          <option key={`${name}-${value}`} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="space-y-1.5"><Label>{label}</Label><ShadcnSelect name={name} defaultValue={defaultValue ?? options[0]?.[0]}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{options.map(([value, optionLabel]) => <SelectItem key={`${name}-${value}`} value={value}>{optionLabel}</SelectItem>)}</SelectContent></ShadcnSelect></div>
   );
 }
 
@@ -117,16 +106,16 @@ export function Check({
 }) {
   return (
     <label className="inline-flex items-center gap-2 text-sm">
-      <input name={name} type="checkbox" defaultChecked={defaultChecked} disabled={disabled} />
+      <Checkbox name={name} defaultChecked={defaultChecked} disabled={disabled} />
       <span>{label}</span>
     </label>
   );
 }
 
 export function Th({ children }: { children: React.ReactNode }) {
-  return <th className="p-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">{children}</th>;
+  return <TableHead className="font-mono text-xs uppercase tracking-[0.16em]">{children}</TableHead>;
 }
 
 export function Td({ children }: { children: React.ReactNode }) {
-  return <td className="p-3 align-top">{children}</td>;
+  return <TableCell className="align-top">{children}</TableCell>;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getVocabularyAttempts, type VocabularyAttempt } from "@/lib/vocabulary-review";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function VocabularyReview() {
   const [attempts, setAttempts] = useState<VocabularyAttempt[]>([]);
@@ -16,47 +17,47 @@ export function VocabularyReview() {
   }, [bad]);
 
   return (
-    <section className="rounded-2xl border border-stone-800 bg-stone-950 p-5 text-stone-100">
+    <section className="rounded-lg border border-border bg-card p-5 text-foreground">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-400">Vocabulary answer review</p>
-          <h2 className="mt-1 font-serif text-2xl text-stone-50">German and vocabulary misses.</h2>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ring">Vocabulary answer review</p>
+          <h2 className="mt-1 font-serif text-2xl text-foreground">German and vocabulary misses.</h2>
         </div>
         <div className="text-right text-sm">
-          <p className="text-[#c7d4b9]">{good} correct</p>
-          <p className="font-semibold text-rose-300">{bad.length} mistakes</p>
+          <p className="text-success">{good} correct</p>
+          <p className="font-semibold text-ring">{bad.length} mistakes</p>
         </div>
       </div>
 
       {bad.length ? (
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[48rem] text-sm text-stone-200">
-            <thead className="border-b border-stone-700 text-left text-xs uppercase tracking-wide text-stone-400">
-              <tr>
-                <th className="pb-2">Card</th>
-                <th className="pb-2">Prompt</th>
-                <th className="pb-2">Your answer</th>
-                <th className="pb-2">Answer</th>
-                <th className="pb-2">Misses</th>
-                <th className="pb-2">Eye used</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full min-w-[48rem] text-sm text-foreground">
+            <TableHeader className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <TableRow>
+                <TableHead className="pb-2">Card</TableHead>
+                <TableHead className="pb-2">Prompt</TableHead>
+                <TableHead className="pb-2">Your answer</TableHead>
+                <TableHead className="pb-2">Answer</TableHead>
+                <TableHead className="pb-2">Misses</TableHead>
+                <TableHead className="pb-2">Eye used</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {bad.map((attempt) => (
-                <tr key={attempt.id} className="border-b border-stone-800 last:border-0">
-                  <td className="py-3 font-semibold text-white">{attempt.displayForm}</td>
-                  <td className="py-3 font-mono text-stone-300">{attempt.prompt}</td>
-                  <td className="py-3 font-mono text-stone-200">{attempt.answer || "-"}</td>
-                  <td className="py-3 font-mono font-semibold text-rose-200">{attempt.expected}</td>
-                  <td className="py-3 font-semibold text-rose-300">{missesByWord.get(attempt.wordId)}</td>
-                  <td className="py-3 text-stone-300">{attempt.usedHint ? "Yes" : "No"}</td>
-                </tr>
+                <TableRow key={attempt.id} className="border-b border-border last:border-0">
+                  <TableCell className="py-3 font-semibold text-primary-foreground">{attempt.displayForm}</TableCell>
+                  <TableCell className="py-3 font-mono text-muted-foreground">{attempt.prompt}</TableCell>
+                  <TableCell className="py-3 font-mono text-foreground">{attempt.answer || "-"}</TableCell>
+                  <TableCell className="py-3 font-mono font-semibold text-ring">{attempt.expected}</TableCell>
+                  <TableCell className="py-3 font-semibold text-ring">{missesByWord.get(attempt.wordId)}</TableCell>
+                  <TableCell className="py-3 text-muted-foreground">{attempt.usedHint ? "Yes" : "No"}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       ) : (
-        <p className="mt-5 text-sm text-stone-300">No wrong vocabulary answers yet. German misses will collect here too.</p>
+        <p className="mt-5 text-sm text-muted-foreground">No wrong vocabulary answers yet. German misses will collect here too.</p>
       )}
     </section>
   );
