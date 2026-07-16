@@ -14,7 +14,6 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Check, Clock3, FastForward, Pause, Play, RefreshCcw, Settings2, TimerReset, Users, X } from "lucide-react";
-import Link from "next/link";
 
 type Timer = {
   id: string;
@@ -205,16 +204,11 @@ export function TimerTrigger() {
   const { snapshot, open, setOpen } = useTimer();
   const timer = snapshot?.group ?? snapshot?.personal;
   return (
-    <Tooltip><TooltipTrigger asChild><Button type="button" size="icon" variant={snapshot?.group ? "accent" : "outline"} onClick={() => setOpen(!open)} aria-label={open ? "Close study timer" : "Open study timer"} className="relative rounded-full">
+    <Tooltip><TooltipTrigger asChild><Button type="button" size="icon" variant={snapshot?.group ? "accent" : "outline"} onClick={() => setOpen(!open)} aria-label={open ? "Close study timer" : "Open study timer"} className="relative">
       {snapshot?.group ? <Users className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
       {timer?.isRunning && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-ring ring-2 ring-background" />}
     </Button></TooltipTrigger><TooltipContent>{open ? "Close timer" : "Open timer"}</TooltipContent></Tooltip>
   );
-}
-
-export function NotificationIndicator() {
-  const { snapshot } = useTimer(); const count=snapshot?.unreadNotifications??0;
-  return <Button asChild variant="outline" size="sm"><Link href="/app/friends" aria-label={`${count} unread friend notifications`}>Friends{count>0&&<Badge className="ml-1.5 min-w-4 px-1 text-[10px]">{Math.min(count,99)}</Badge>}</Link></Button>;
 }
 
 function FloatingTimer({ snapshot, remaining, mutate, busy, error, onClose }: { snapshot: TimerSnapshot; remaining: number; mutate: (body: Record<string, unknown>) => Promise<TimerSnapshot | null>; busy: boolean; error: string; onClose: () => void }) {

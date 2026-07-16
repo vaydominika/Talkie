@@ -5,7 +5,8 @@ import { auth, signOut } from "@/auth";
 import { ModeToggle } from "@/components/mode-toggle";
 import { SidebarLink } from "@/components/sidebar-link";
 import { UserAvatar } from "@/components/user-avatar";
-import { NotificationIndicator, TimerProvider, TimerTrigger } from "@/components/timer-provider";
+import { NotificationCenter } from "@/components/notification-center";
+import { TimerProvider, TimerTrigger } from "@/components/timer-provider";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -80,7 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SidebarTrigger className="md:hidden" />
           <Link className="font-semibold tracking-tight md:hidden" href="/app/dashboard">Talkie</Link>
           <div className="ml-auto flex items-center gap-1">
-            <NotificationIndicator />
+            <NotificationCenter userId={session.user.id} />
             <TimerTrigger />
             <ModeToggle />
             <span className="ml-2 hidden text-sm text-muted-foreground sm:inline">{displayName}</span>

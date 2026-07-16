@@ -11,7 +11,7 @@ export function ModeToggle() {
   const { accentTheme, setAccentTheme } = useAccentTheme();
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon" aria-label="Change color theme">
+      <Button variant="outline" size="icon" aria-label="Change color theme">
         <Sun className="size-4 dark:hidden" />
         <Moon className="hidden size-4 dark:block" />
       </Button>

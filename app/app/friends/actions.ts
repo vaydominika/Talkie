@@ -6,18 +6,42 @@ import { dateKey, shiftDateKey } from "@/lib/timer";
 import { userTimezone, weekStartKey } from "@/lib/learning-loop";
 import { revalidatePath } from "next/cache";
 import { canonicalFriendPair } from "@/lib/friends";
+import { isUniqueConstraintError, validateUsername } from "@/lib/usernames";
 
 async function userId() { const session = await auth(); if (!session?.user?.id) throw new Error("Unauthorized"); return session.user.id; }
 function code() { return crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase(); }
 function refresh() { revalidatePath("/app/friends"); revalidatePath("/app"); }
 export async function initializeFriendCode(){const id=await userId();await prisma.user.updateMany({where:{id,friendCode:null},data:{friendCode:code()}});refresh();}
 
-export async function updateFriendProfile(formData: FormData) {
+export type FriendProfileState = {
+  status: "idle" | "error" | "success";
+  message?: string;
+  username: string;
+};
+
+export async function updateFriendProfile(_previousState: FriendProfileState, formData: FormData): Promise<FriendProfileState> {
   const id = await userId();
-  const username = String(formData.get("username") ?? "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
-  if (username.length < 3) throw new Error("Username must be at least 3 characters.");
-  await prisma.user.update({ where: { id }, data: { username, friendCode: String(formData.get("regenerate")) === "true" ? code() : undefined, friendDiscoverable: formData.get("friendDiscoverable") === "on", friendActivityVisible: formData.get("friendActivityVisible") === "on", friendNudgesEnabled: formData.get("friendNudgesEnabled") === "on" } });
+  const submittedUsername = String(formData.get("username") ?? "").trim();
+  const result = validateUsername(submittedUsername);
+  if (result.error) return { status: "error", message: result.error, username: submittedUsername };
+
+  const username = result.username!;
+  const owner = await prisma.user.findFirst({
+    where: { id: { not: id }, username: { equals: username, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (owner) return { status: "error", message: "That username is already taken.", username: submittedUsername };
+
+  try {
+    await prisma.user.update({ where: { id }, data: { username, friendCode: String(formData.get("regenerate")) === "true" ? code() : undefined, friendDiscoverable: formData.get("friendDiscoverable") === "on", friendActivityVisible: formData.get("friendActivityVisible") === "on", friendNudgesEnabled: formData.get("friendNudgesEnabled") === "on" } });
+  } catch (error) {
+    if (isUniqueConstraintError(error, "username") || isUniqueConstraintError(error)) {
+      return { status: "error", message: "That username is already taken.", username: submittedUsername };
+    }
+    return { status: "error", message: "The friend profile could not be saved. Try again.", username: submittedUsername };
+  }
   refresh();
+  return { status: "success", message: "Friend profile saved.", username };
 }
 
 export async function regenerateFriendCode() { const id = await userId(); await prisma.user.update({ where: { id }, data: { friendCode: code() } }); refresh(); }
@@ -54,10 +78,46 @@ export async function nudgeFriend(formData: FormData) {
 export async function createCommitment(formData: FormData) {
   const id = await userId(); const friendId = String(formData.get("friendId") ?? ""); const myTarget = Math.max(1,Math.min(7,Number(formData.get("myTarget"))||4));const friendTarget=Math.max(1,Math.min(7,Number(formData.get("friendTarget"))||myTarget)); const timezone=await userTimezone(id); const nextWeek=shiftDateKey(weekStartKey(dateKey(new Date(),timezone)),7); const [a,b]=canonicalFriendPair(id,friendId);const targetDaysA=id===a?myTarget:friendTarget;const targetDaysB=id===b?myTarget:friendTarget;
   if(!await prisma.friendConnection.findUnique({where:{userAId_userBId:{userAId:a,userBId:b}}}))throw new Error("Friend not found.");
-  const commitment=await prisma.friendCommitment.upsert({where:{userAId_userBId_weekStart:{userAId:a,userBId:b,weekStart:nextWeek}},update:{targetDaysA,targetDaysB,status:"PENDING",requestedById:id},create:{userAId:a,userBId:b,requestedById:id,targetDaysA,targetDaysB,weekStart:nextWeek}});
+  const commitment=await prisma.friendCommitment.upsert({where:{userAId_userBId_weekStart:{userAId:a,userBId:b,weekStart:nextWeek}},update:{targetDaysA,targetDaysB,status:"PENDING",requestedById:id,acceptedAt:null,resolvedAt:null},create:{userAId:a,userBId:b,requestedById:id,targetDaysA,targetDaysB,weekStart:nextWeek}});
   await prisma.notification.create({data:{userId:friendId,actorId:id,type:"COMMITMENT_REQUEST",payload:{commitmentId:commitment.id,targetDaysA,targetDaysB}}}); refresh();
 }
 export async function respondCommitment(formData: FormData) { const id=await userId(); const commitmentId=String(formData.get("commitmentId")??""); const accept=String(formData.get("decision"))==="accept"; const item=await prisma.friendCommitment.findFirst({where:{id:commitmentId,OR:[{userAId:id},{userBId:id}],status:"PENDING",requestedById:{not:id}}}); if(!item)throw new Error("Commitment not found.");const ownTarget=Math.max(1,Math.min(7,Number(formData.get("ownTarget"))||(id===item.userAId?item.targetDaysA:item.targetDaysB))); await prisma.$transaction(async tx=>{const claimed=await tx.friendCommitment.updateMany({where:{id:item.id,status:"PENDING"},data:{...(id===item.userAId?{targetDaysA:ownTarget}:{targetDaysB:ownTarget}),status:accept?"ACTIVE":"DECLINED",acceptedAt:accept?new Date():null,resolvedAt:accept?null:new Date()}});if(!claimed.count)throw new Error("Commitment was already answered.");if(accept)await tx.notification.create({data:{userId:item.requestedById,actorId:id,type:"COMMITMENT_ACCEPTED",payload:{commitmentId:item.id}}});}); refresh(); }
+
+export async function updateCommitment(formData: FormData) {
+  const id = await userId();
+  const commitmentId = String(formData.get("commitmentId") ?? "");
+  const item = await prisma.friendCommitment.findFirst({
+    where: { id: commitmentId, OR: [{ userAId: id }, { userBId: id }], status: { in: ["PENDING", "ACTIVE"] } },
+  });
+  if (!item) throw new Error("Commitment not found.");
+  if (item.status === "PENDING" && item.requestedById !== id) throw new Error("Answer this proposal before changing it.");
+
+  const myTarget = Math.max(1, Math.min(7, Number(formData.get("myTarget")) || 4));
+  const friendTarget = Math.max(1, Math.min(7, Number(formData.get("friendTarget")) || myTarget));
+  const friendId = item.userAId === id ? item.userBId : item.userAId;
+  const targetDaysA = item.userAId === id ? myTarget : friendTarget;
+  const targetDaysB = item.userBId === id ? myTarget : friendTarget;
+
+  await prisma.$transaction([
+    prisma.friendCommitment.update({
+      where: { id: item.id },
+      data: { targetDaysA, targetDaysB, status: "PENDING", requestedById: id, acceptedAt: null, resolvedAt: null },
+    }),
+    prisma.notification.create({
+      data: { userId: friendId, actorId: id, type: "COMMITMENT_REQUEST", payload: { commitmentId: item.id, targetDaysA, targetDaysB } },
+    }),
+  ]);
+  refresh();
+}
+
+export async function cancelCommitment(formData: FormData) {
+  const id = await userId();
+  await prisma.friendCommitment.updateMany({
+    where: { id: String(formData.get("commitmentId") ?? ""), OR: [{ userAId: id }, { userBId: id }], status: { not: "CANCELED" } },
+    data: { status: "CANCELED", resolvedAt: new Date() },
+  });
+  refresh();
+}
 
 async function requireFriend(aId:string,bId:string){const[a,b]=canonicalFriendPair(aId,bId);const [friend,blocked]=await Promise.all([prisma.friendConnection.findUnique({where:{userAId_userBId:{userAId:a,userBId:b}}}),prisma.userBlock.findFirst({where:{OR:[{blockerId:aId,blockedId:bId},{blockerId:bId,blockedId:aId}]}})]);if(!friend||blocked)throw new Error("Friend invitation unavailable.");}
 export async function inviteFriendToGroup(formData:FormData){const inviterId=await userId();const inviteeId=String(formData.get("friendId")??"");const groupId=String(formData.get("groupId")??"");await requireFriend(inviterId,inviteeId);if(!await prisma.groupMember.findUnique({where:{groupId_userId:{groupId,userId:inviterId}}}))throw new Error("Group unavailable.");if(await prisma.groupMember.findUnique({where:{groupId_userId:{groupId,userId:inviteeId}}}))return;await prisma.$transaction(async tx=>{const key=`${inviterId}:${inviteeId}:${groupId}`;const invitation=await tx.groupInvitation.upsert({where:{dedupeKey:key},update:{expiresAt:new Date(Date.now()+7*86400000)},create:{inviterId,inviteeId,groupId,dedupeKey:key,expiresAt:new Date(Date.now()+7*86400000)}});await tx.notification.create({data:{userId:inviteeId,actorId:inviterId,type:"GROUP_INVITATION",payload:{invitationId:invitation.id,groupId}}});});refresh();}
@@ -67,3 +127,4 @@ export async function cancelGroupTimerInvitation(formData:FormData){const invite
 export async function inviteFriendToGroupTimer(formData:FormData){const inviterId=await userId();const inviteeId=String(formData.get("friendId")??"");await requireFriend(inviterId,inviteeId);const participant=await prisma.groupTimerParticipant.findFirst({where:{userId:inviterId,lastSeenAt:{gt:new Date(Date.now()-120000)}},include:{room:true}});if(!participant)throw new Error("Join an active group timer first.");if(!await prisma.groupMember.findUnique({where:{groupId_userId:{groupId:participant.room.groupId,userId:inviteeId}}}))throw new Error("Your friend must already belong to this group.");const key=`${inviterId}:${inviteeId}:${participant.roomId}`;const invitation=await prisma.groupTimerInvitation.upsert({where:{dedupeKey:key},update:{expiresAt:new Date(Date.now()+3600000)},create:{inviterId,inviteeId,roomId:participant.roomId,dedupeKey:key,expiresAt:new Date(Date.now()+3600000)}});await prisma.notification.create({data:{userId:inviteeId,actorId:inviterId,type:"GROUP_TIMER_INVITATION",payload:{invitationId:invitation.id,groupId:participant.room.groupId}}});refresh();}
 export async function respondGroupTimerInvitation(formData:FormData){const inviteeId=await userId();const id=String(formData.get("invitationId")??"");const accept=String(formData.get("decision"))==="accept";await prisma.$transaction(async tx=>{const item=await tx.groupTimerInvitation.findFirst({where:{id,inviteeId,status:"PENDING"},include:{room:true}});if(!item||item.expiresAt<=new Date())throw new Error("Timer invitation unavailable.");await requireFriend(item.inviterId,inviteeId);if(!await tx.groupMember.findUnique({where:{groupId_userId:{groupId:item.room.groupId,userId:inviteeId}}}))throw new Error("Group membership required.");if(accept){await tx.groupTimerParticipant.deleteMany({where:{userId:inviteeId}});await tx.groupTimerParticipant.create({data:{userId:inviteeId,roomId:item.roomId,creditedUntil:new Date()}});}await tx.groupTimerInvitation.update({where:{id:item.id},data:{status:accept?"ACCEPTED":"DECLINED",resolvedAt:new Date(),dedupeKey:null}});});refresh();}
 export async function markNotificationsRead() { const id=await userId(); await prisma.notification.updateMany({where:{userId:id,readAt:null},data:{readAt:new Date()}}); refresh(); }
+export async function markNotificationsUnread() { const id=await userId(); await prisma.notification.updateMany({where:{userId:id,readAt:{not:null}},data:{readAt:null}}); refresh(); }

@@ -1,65 +1,137 @@
+import { Search } from "lucide-react";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
-import { FormSelect } from "@/components/ui/form-select";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { completedCommitmentDays, goalStreak } from "@/lib/friends";
 import { userTimezone } from "@/lib/learning-loop";
 import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/timer";
-import { redirect } from "next/navigation";
-import {
-  blockFriend, cancelFriendRequest, createCommitment, initializeFriendCode, inviteFriendToGroup,
-  inviteFriendToGroupTimer, markNotificationsRead, nudgeFriend, regenerateFriendCode, removeFriend,
-  respondCommitment, respondFriendRequest, respondGroupInvitation, respondGroupTimerInvitation,
-  sendFriendRequest, unblockFriend, updateFriendProfile,cancelGroupInvitation,cancelGroupTimerInvitation,
-} from "./actions";
+import { sendFriendRequest, unblockFriend } from "./actions";
+import { CommitmentCard, FriendCard, type CommitmentView } from "./friend-cards";
+import { FriendsSettings } from "./friends-settings";
 
-export default async function FriendsPage({searchParams}:{searchParams:Promise<{q?:string}>}){
- const session=await auth();if(!session?.user?.id)redirect("/sign-in");const userId=session.user.id;const {q=""}=await searchParams;const timezone=await userTimezone(userId);const today=dateKey(new Date(),timezone);
- const user=await prisma.user.findUniqueOrThrow({where:{id:userId},select:{username:true,friendCode:true,friendDiscoverable:true,friendActivityVisible:true,friendNudgesEnabled:true}});
- const [requests,outgoing,connections,commitments,notifications,searchResults,blocks,groups,groupInvites,timerInvites,sentGroupInvites,sentTimerInvites]=await Promise.all([
-  prisma.friendRequest.findMany({where:{recipientId:userId,status:"PENDING"},include:{sender:{select:{id:true,username:true,name:true,image:true}}}}),
-  prisma.friendRequest.findMany({where:{senderId:userId,status:"PENDING"},include:{recipient:{select:{username:true,name:true}}}}),
-  prisma.friendConnection.findMany({
-   where:{OR:[{userAId:userId},{userBId:userId}]},
-   include:{
-    userA:{select:{id:true,username:true,name:true,image:true,friendActivityVisible:true,dailyStudyRecords:{orderBy:{dateKey:"desc"},take:60}}},
-    userB:{select:{id:true,username:true,name:true,image:true,friendActivityVisible:true,dailyStudyRecords:{orderBy:{dateKey:"desc"},take:60}}},
-   },
-  }),
-  prisma.friendCommitment.findMany({where:{OR:[{userAId:userId},{userBId:userId}]},include:{userA:{select:{username:true,name:true,dailyStudyRecords:{take:14,orderBy:{dateKey:"desc"}}}},userB:{select:{username:true,name:true,dailyStudyRecords:{take:14,orderBy:{dateKey:"desc"}}}}},orderBy:{createdAt:"desc"},take:12}),
-  prisma.notification.findMany({where:{userId},include:{actor:{select:{name:true,username:true}}},orderBy:{createdAt:"desc"},take:20}),
-  q.trim()?prisma.user.findMany({where:{id:{not:userId},OR:[{friendCode:{equals:q.trim().toUpperCase(),mode:"insensitive"}},{AND:[{friendDiscoverable:true},{username:{contains:q.trim().toLowerCase(),mode:"insensitive"}}]}]},select:{id:true,username:true,name:true,image:true},take:10}):Promise.resolve([]),
-  prisma.userBlock.findMany({where:{blockerId:userId},include:{blocked:{select:{id:true,username:true,name:true}}}}),
-  prisma.group.findMany({where:{members:{some:{userId}}},select:{id:true,name:true},orderBy:{name:"asc"}}),
-  prisma.groupInvitation.findMany({where:{inviteeId:userId,status:"PENDING",expiresAt:{gt:new Date()}},include:{group:true,inviter:{select:{username:true,name:true}}}}),
-  prisma.groupTimerInvitation.findMany({where:{inviteeId:userId,status:"PENDING",expiresAt:{gt:new Date()}},include:{room:{include:{group:true}},inviter:{select:{username:true,name:true}}}}),
-  prisma.groupInvitation.findMany({where:{inviterId:userId,status:"PENDING",expiresAt:{gt:new Date()}},include:{group:true,invitee:{select:{username:true,name:true}}},orderBy:{createdAt:"desc"}}),
-  prisma.groupTimerInvitation.findMany({where:{inviterId:userId,status:"PENDING",expiresAt:{gt:new Date()}},include:{room:{include:{group:true}},invitee:{select:{username:true,name:true}}},orderBy:{createdAt:"desc"}}),
- ]);
- const friends=connections.map(item=>item.userAId===userId?item.userB:item.userA);
- return <div className="space-y-8">
-  <header><h1 className="text-3xl font-semibold">Friends</h1><p className="mt-1 text-muted-foreground">Quiet accountability without public rankings.</p></header>
-  <section className="grid gap-4 lg:grid-cols-2">
-   <form action={updateFriendProfile} className="rounded-lg border p-5"><h2 className="font-semibold">Friend profile</h2><label className="mt-4 block text-sm font-medium">Username<Input name="username" required minLength={3} maxLength={24} defaultValue={user.username??""} className="mt-1 h-10 w-full rounded-md border bg-background px-3"/></label><div className="mt-3 space-y-2 text-sm"><Toggle name="friendDiscoverable" checked={user.friendDiscoverable}>Allow username search</Toggle><Toggle name="friendActivityVisible" checked={user.friendActivityVisible}>Show goal status to friends</Toggle><Toggle name="friendNudgesEnabled" checked={user.friendNudgesEnabled}>Allow friend nudges</Toggle></div><Button className="mt-4 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save profile</Button></form>
-   <div className="rounded-lg border p-5"><h2 className="font-semibold">Private friend code</h2>{user.friendCode?<><p className="mt-3 font-mono text-2xl tracking-[.16em]">{user.friendCode}</p><form action={regenerateFriendCode}><Button variant="link" className="mt-3 h-auto px-0 py-0 text-sm">Regenerate code</Button></form></>:<form action={initializeFriendCode}><Button className="mt-3 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground">Create private code</Button></form>}<form className="mt-5 flex gap-2"><Input name="q" defaultValue={q} placeholder="Username or friend code" className="h-10 flex-1 rounded-md border bg-background px-3"/><Button variant="outline" className="rounded-md px-3 text-sm font-medium">Find</Button></form>{searchResults.map(item=><div key={item.id} className="mt-3 flex items-center gap-3 rounded-lg bg-muted/40 p-3"><UserAvatar name={item.name} image={item.image} size="sm"/><span className="flex-1 text-sm font-medium">@{item.username??item.name??"private user"}</span><form action={sendFriendRequest}><Input type="hidden" name="recipientId" value={item.id}/><Button variant="outline" className="text-sm">Add</Button></form></div>)}</div>
-  </section>
-  {(requests.length>0||groupInvites.length>0||timerInvites.length>0)&&<section><h2 className="font-semibold">Requests and invitations</h2><div className="mt-3 grid gap-2">{requests.map(item=><ActionCard key={item.id} text={`@${item.sender.username??item.sender.name} sent a friend request.`}><form action={respondFriendRequest} className="flex gap-2"><Input type="hidden" name="requestId" value={item.id}/><DecisionButtons/></form></ActionCard>)}{groupInvites.map(item=><ActionCard key={item.id} text={`@${item.inviter.username??item.inviter.name} invited you to ${item.group.name}.`}><form action={respondGroupInvitation} className="flex gap-2"><Input type="hidden" name="invitationId" value={item.id}/><DecisionButtons/></form></ActionCard>)}{timerInvites.map(item=><ActionCard key={item.id} text={`@${item.inviter.username??item.inviter.name} invited you to the ${item.room.group.name} timer.`}><form action={respondGroupTimerInvitation} className="flex gap-2"><Input type="hidden" name="invitationId" value={item.id}/><DecisionButtons acceptLabel="Join"/></form></ActionCard>)}</div></section>}
-  {outgoing.length>0&&<section><h2 className="font-semibold">Sent requests</h2><div className="mt-3 flex flex-wrap gap-2">{outgoing.map(item=><form action={cancelFriendRequest} key={item.id} className="rounded-lg border p-3 text-sm"><Input type="hidden" name="requestId" value={item.id}/><span>@{item.recipient.username??item.recipient.name}</span><Button className="ml-3 text-destructive underline">Cancel</Button></form>)}</div></section>}
-  {(sentGroupInvites.length>0||sentTimerInvites.length>0)&&<section><div className="flex items-end justify-between gap-3"><div><h2 className="font-semibold">Sent invitations</h2><p className="mt-1 text-xs text-muted-foreground">Pending invitations stop working when they expire or you cancel them.</p></div><span className="font-mono text-[10px] uppercase tracking-[0.14em] text-foreground">{sentGroupInvites.length+sentTimerInvites.length} waiting</span></div><div className="mt-3 grid gap-2 md:grid-cols-2">{sentGroupInvites.map(item=><SentInvitation key={item.id} recipient={item.invitee.username??item.invitee.name??"Friend"} group={item.group.name} expiresAt={item.expiresAt} kind="Group"><form action={cancelGroupInvitation}><Input type="hidden" name="invitationId" value={item.id}/><Button className="rounded-md border px-2.5 py-1.5 text-xs text-foreground hover:bg-accent/30 dark:hover:bg-destructive/10">Cancel</Button></form></SentInvitation>)}{sentTimerInvites.map(item=><SentInvitation key={item.id} recipient={item.invitee.username??item.invitee.name??"Friend"} group={item.room.group.name} expiresAt={item.expiresAt} kind="Timer"><form action={cancelGroupTimerInvitation}><Input type="hidden" name="invitationId" value={item.id}/><Button className="rounded-md border px-2.5 py-1.5 text-xs text-foreground hover:bg-accent/30 dark:hover:bg-destructive/10">Cancel</Button></form></SentInvitation>)}</div></section>}
-  <section><h2 className="font-semibold">Your friends</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{friends.map(friend=>{const daily=friend.dailyStudyRecords.find(item=>item.dateKey===today);const status=!friend.friendActivityVisible?"Activity private":daily&&daily.focusedSeconds>=(daily.targetMinutes+daily.carryOverMinutes)*60?"Goal complete":daily?.focusedSeconds?"Studied today":"Not studied yet";return <article key={friend.id} className="rounded-lg border p-4"><div className="flex items-center gap-3"><UserAvatar name={friend.name} image={friend.image}/><div><p className="font-medium">@{friend.username??friend.name}</p><p className="text-xs text-muted-foreground">{status}{friend.friendActivityVisible?` · ${goalStreak(friend.dailyStudyRecords)} day streak`:""}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><form action={nudgeFriend}><Input type="hidden" name="friendId" value={friend.id}/><SmallButton>Nudge</SmallButton></form><form action={createCommitment} className="flex"><Input type="hidden" name="friendId" value={friend.id}/><TargetSelect name="myTarget" prefix="Me"/><TargetSelect name="friendTarget" prefix="Friend"/><Button className="rounded-r-md">Commit</Button></form>{groups.length>0&&<form action={inviteFriendToGroup} className="flex"><Input type="hidden" name="friendId" value={friend.id}/><FormSelect name="groupId" defaultValue={groups[0]?.id} className="w-32 rounded-r-none" options={groups.map(group=>({value:group.id,label:group.name}))}/><Button variant="outline" className="rounded-l-none">Invite</Button></form>}<form action={inviteFriendToGroupTimer}><Input type="hidden" name="friendId" value={friend.id}/><SmallButton>Timer invite</SmallButton></form><form action={removeFriend}><Input type="hidden" name="friendId" value={friend.id}/><Button variant="ghost" size="sm" className="text-muted-foreground">Remove</Button></form><form action={blockFriend}><Input type="hidden" name="friendId" value={friend.id}/><Button variant="ghost" size="sm" className="text-destructive">Block</Button></form></div></article>})}{!friends.length&&<p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Add a friend to begin a shared commitment.</p>}</div></section>
-  <section><h2 className="font-semibold">Shared commitments</h2><div className="mt-3 grid gap-2">{commitments.map(item=>{const a=completedCommitmentDays(item.userA.dailyStudyRecords,item.weekStart);const b=completedCommitmentDays(item.userB.dailyStudyRecords,item.weekStart);return <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"><div><p className="text-sm font-medium">Separate weekly targets</p><p className="text-xs text-muted-foreground">Week of {item.weekStart} · {item.status.toLowerCase()}{item.streakWeeks?` · ${item.streakWeeks} week streak`:""}</p><p className="mt-1 text-xs text-foreground">@{item.userA.username??item.userA.name}: {a}/{item.targetDaysA} · @{item.userB.username??item.userB.name}: {b}/{item.targetDaysB}</p></div>{item.status==="PENDING"&&item.requestedById!==userId&&<form action={respondCommitment} className="flex gap-2"><Input type="hidden" name="commitmentId" value={item.id}/><Input name="ownTarget" type="number" min="1" max="7" defaultValue={userId===item.userAId?item.targetDaysA:item.targetDaysB} aria-label="Your target days" className="w-14 rounded-md border bg-background px-2 text-xs"/><DecisionButtons/></form>}</article>})}</div></section>
-  <section><div className="flex justify-between"><h2 className="font-semibold">Notifications</h2><form action={markNotificationsRead}><Button className="text-xs underline">Mark all read</Button></form></div><div className="mt-3 space-y-2">{notifications.map(item=><div key={item.id} className={`rounded-lg border p-3 text-sm ${item.readAt?"opacity-60":"bg-accent/25 dark:bg-accent/10"}`}>{item.actor?.username??item.actor?.name??"Talkie"} · {item.type.toLowerCase().replaceAll("_"," ")}</div>)}</div></section>
-  {blocks.length>0&&<section><h2 className="font-semibold">Blocked users</h2>{blocks.map(item=><form key={item.id} action={unblockFriend} className="mt-2 rounded-lg border p-3 text-sm"><Input type="hidden" name="friendId" value={item.blocked.id}/><span>@{item.blocked.username??item.blocked.name}</span><Button className="ml-3 text-destructive underline">Unblock</Button></form>)}</section>}
- </div>;
+export default async function FriendsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
+  const { q = "" } = await searchParams;
+  const timezone = await userTimezone(userId);
+  const today = dateKey(new Date(), timezone);
+
+  const [user, connections, commitmentRows, searchResults, blocks, groups] = await Promise.all([
+    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true, friendCode: true, friendDiscoverable: true, friendActivityVisible: true, friendNudgesEnabled: true } }),
+    prisma.friendConnection.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      include: {
+        userA: { select: { id: true, username: true, name: true, image: true, friendActivityVisible: true, dailyStudyRecords: { orderBy: { dateKey: "desc" }, take: 60 } } },
+        userB: { select: { id: true, username: true, name: true, image: true, friendActivityVisible: true, dailyStudyRecords: { orderBy: { dateKey: "desc" }, take: 60 } } },
+      },
+    }),
+    prisma.friendCommitment.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }], status: { in: ["PENDING", "ACTIVE", "COMPLETED"] } },
+      include: {
+        userA: { select: { id: true, username: true, name: true, dailyStudyRecords: { take: 14, orderBy: { dateKey: "desc" } } } },
+        userB: { select: { id: true, username: true, name: true, dailyStudyRecords: { take: 14, orderBy: { dateKey: "desc" } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    q.trim() ? prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        OR: [
+          { friendCode: { equals: q.trim().toUpperCase(), mode: "insensitive" } },
+          { AND: [{ friendDiscoverable: true }, { username: { contains: q.trim().toLowerCase(), mode: "insensitive" } }] },
+        ],
+      },
+      select: { id: true, username: true, name: true, image: true },
+      take: 10,
+    }) : Promise.resolve([]),
+    prisma.userBlock.findMany({ where: { blockerId: userId }, include: { blocked: { select: { id: true, username: true, name: true } } } }),
+    prisma.group.findMany({ where: { members: { some: { userId } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+
+  const friends = connections.map(item => item.userAId === userId ? item.userB : item.userA);
+  const commitments: CommitmentView[] = commitmentRows.map(item => {
+    const own = item.userAId === userId ? item.userA : item.userB;
+    const friend = item.userAId === userId ? item.userB : item.userA;
+    return {
+      id: item.id,
+      status: item.status,
+      weekStart: item.weekStart,
+      requestedById: item.requestedById,
+      userAId: item.userAId,
+      userBId: item.userBId,
+      targetDaysA: item.targetDaysA,
+      targetDaysB: item.targetDaysB,
+      streakWeeks: item.streakWeeks,
+      jointlySucceeded: item.jointlySucceeded,
+      own: { name: displayName(own), username: own.username, progress: completedCommitmentDays(own.dailyStudyRecords, item.weekStart) },
+      friend: { id: friend.id, name: displayName(friend), username: friend.username, progress: completedCommitmentDays(friend.dailyStudyRecords, item.weekStart) },
+    };
+  });
+
+  return <div className="space-y-8">
+    <header className="flex items-start justify-between gap-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold">Friends</h1>
+          <FriendsSettings
+            username={user.username ?? ""}
+            friendCode={user.friendCode}
+            friendDiscoverable={user.friendDiscoverable}
+            friendActivityVisible={user.friendActivityVisible}
+            friendNudgesEnabled={user.friendNudgesEnabled}
+          />
+        </div>
+        <p className="mt-1 text-muted-foreground">Find people, keep each other moving, and plan a week together.</p>
+      </div>
+    </header>
+
+    <section aria-labelledby="friend-search-title">
+      <h2 id="friend-search-title" className="sr-only">Find friends</h2>
+      <form className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input name="q" defaultValue={q} placeholder="Search by username or private friend code" aria-label="Search friends" className="h-11 w-full pl-10 pr-4" />
+        <button type="submit" className="sr-only">Search</button>
+      </form>
+      {q.trim() && <div className="mt-3 grid gap-2">
+        {searchResults.map(item => <article key={item.id} className="flex items-center gap-3 rounded-lg border bg-background p-3">
+          <UserAvatar name={item.name} image={item.image} size="sm" />
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{displayName(item)}</p>{item.username && <p className="truncate text-xs text-muted-foreground">@{item.username}</p>}</div>
+          <form action={sendFriendRequest}><input type="hidden" name="recipientId" value={item.id} /><Button variant="outline" size="sm">Add friend</Button></form>
+        </article>)}
+        {!searchResults.length && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No people matched “{q.trim()}”.</p>}
+      </div>}
+    </section>
+
+    <section>
+      <div className="flex items-end justify-between gap-3"><div><h2 className="font-semibold">Your friends</h2><p className="mt-1 text-xs text-muted-foreground">Commitments and other actions now live on each friend card.</p></div><span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{friends.length} total</span></div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {friends.map(friend => {
+          const daily = friend.dailyStudyRecords.find(item => item.dateKey === today);
+          const status = !friend.friendActivityVisible ? "Activity private" : daily && daily.focusedSeconds >= (daily.targetMinutes + daily.carryOverMinutes) * 60 ? "Goal complete" : daily?.focusedSeconds ? "Studied today" : "Not studied yet";
+          const commitment = commitments.find(item => item.friend.id === friend.id && (item.status === "PENDING" || item.status === "ACTIVE"));
+          return <FriendCard key={friend.id} userId={userId} groups={groups} commitment={commitment} friend={{ id: friend.id, name: displayName(friend), username: friend.username, image: friend.image, status, streak: friend.friendActivityVisible ? goalStreak(friend.dailyStudyRecords) : 0 }} />;
+        })}
+        {!friends.length && <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Search for someone above to start learning together.</p>}
+      </div>
+    </section>
+
+    <section>
+      <div><h2 className="font-semibold">Shared commitments</h2><p className="mt-1 text-xs text-muted-foreground">Separate targets, one shared week. Open a card to review or revise it.</p></div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {commitments.map(item => <CommitmentCard key={item.id} commitment={item} userId={userId} />)}
+        {!commitments.length && <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground md:col-span-2">Use the handshake icon on a friend card to propose your first commitment.</p>}
+      </div>
+    </section>
+
+    {blocks.length > 0 && <section><h2 className="font-semibold">Blocked users</h2><div className="mt-3 flex flex-wrap gap-2">{blocks.map(item => <form key={item.id} action={unblockFriend} className="rounded-lg border p-3 text-sm"><input type="hidden" name="friendId" value={item.blocked.id} /><span>{personLabel(item.blocked)}</span><Button variant="ghost" size="sm" className="ml-2 text-destructive">Unblock</Button></form>)}</div></section>}
+  </div>;
 }
 
-function Toggle({name,checked,children}:{name:string;checked:boolean;children:React.ReactNode}){return <label className="flex items-center justify-between gap-3"><span>{children}</span><Switch name={name} defaultChecked={checked}/></label>}
-function ActionCard({text,children}:{text:string;children:React.ReactNode}){return <article className="flex items-center gap-3 rounded-lg border p-4"><p className="flex-1 text-sm">{text}</p>{children}</article>}
-function DecisionButtons({acceptLabel="Accept"}:{acceptLabel?:string}){return <><Button name="decision" value="decline" variant="outline" size="sm">Decline</Button><Button name="decision" value="accept" variant="accent" size="sm">{acceptLabel}</Button></>}
-function SmallButton({children}:{children:React.ReactNode}){return <Button variant="outline" size="sm">{children}</Button>}
-function TargetSelect({name,prefix}:{name:string;prefix:string}){return <FormSelect name={name} defaultValue="3" className="w-24 rounded-none text-xs" options={[3,4,5,7].map(value=>({value:String(value),label:`${prefix} ${value}`}))}/>}
-function SentInvitation({recipient,group,expiresAt,kind,children}:{recipient:string;group:string;expiresAt:Date;kind:"Group"|"Timer";children:React.ReactNode}){return <article className="flex items-center gap-3 rounded-lg border bg-background p-3"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="font-mono text-[10px] uppercase tracking-[0.12em] text-foreground">{kind}</span><p className="truncate text-sm font-medium">@{recipient} · {group}</p></div><p className="mt-1 text-xs text-muted-foreground">Waiting · expires <time dateTime={expiresAt.toISOString()}>{formatExpiry(expiresAt)}</time></p></div>{children}</article>}
-function formatExpiry(value:Date){const minutes=Math.max(1,Math.ceil((value.getTime()-Date.now())/60000));return minutes<60?`in ${minutes} min`:minutes<1440?`in ${Math.ceil(minutes/60)} hr`:`in ${Math.ceil(minutes/1440)} days`}
+type PersonIdentity = { name: string | null; username: string | null };
+function displayName(person: PersonIdentity) { return person.name?.trim() || (person.username ? `@${person.username}` : "Talkie user"); }
+function personLabel(person: PersonIdentity) { const name = person.name?.trim(); return name && person.username ? `${name} (@${person.username})` : displayName(person); }

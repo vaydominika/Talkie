@@ -234,7 +234,7 @@ export function GroupTabs({
               variant="ghost"
               size="sm"
               onClick={() => selectTab(item.id)}
-              className={`h-10 rounded-none border-b-2 bg-transparent px-3 font-medium shadow-none hover:bg-muted/60 ${
+              className={`h-10 rounded-none border-b-2 bg-transparent! px-3 font-medium shadow-none hover:bg-transparent! ${
                 tabReady && tab === item.id
                   ? "border-ring text-foreground hover:text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
