@@ -33,7 +33,7 @@ export function AvatarInput({ initialImage, name, email }: { initialImage?: stri
   return (
     <div className="flex items-center gap-4">
       <UserAvatar name={name} email={email} image={image} size="lg" />
-      <div className="flex flex-col items-start gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="image" value={image} />
         <Button asChild variant="outline"><label className="cursor-pointer">
           Upload avatar
@@ -50,7 +50,7 @@ export function AvatarInput({ initialImage, name, email }: { initialImage?: stri
             variant="ghost"
             size="sm"
             onClick={() => setImage("")}
-            className="h-auto bg-transparent! px-0 py-0 text-xs text-muted-foreground hover:bg-transparent! hover:text-foreground"
+            className="h-auto bg-transparent! px-0 py-0 text-sm text-muted-foreground hover:bg-transparent! hover:text-foreground"
           >
             Remove avatar
           </Button>
