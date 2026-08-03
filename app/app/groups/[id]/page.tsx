@@ -47,6 +47,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
                   image: true,
                   name: true,
                   email: true,
+                  username: true,
+                  friendGroupDiscoverable: true,
                 },
               },
             },
@@ -104,8 +106,9 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const isOwner = membership.role === "OWNER";
 
   const groupLanguageIds = group.languages.map((item) => item.languageId);
+  const groupMemberIds = group.members.map((item) => item.userId).filter((userId) => userId !== session.user.id);
 
-  const [profileLanguages, profileVocabulary, reviewAttempts, practicePreferences, dueStates] = await Promise.all([
+  const [profileLanguages, profileVocabulary, reviewAttempts, practicePreferences, dueStates, friendConnections, friendRequests] = await Promise.all([
     prisma.language.findMany({
       where: {
         users: {
@@ -143,11 +146,24 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       select: { vocabularyEntryId: true, enabled: true },
     }),
     prisma.flashcardReviewState.findMany({where:{userId:session.user.id,dueAt:{lte:new Date()},state:{notIn:["SUSPENDED","BURIED"]},vocabularyEntry:{groupId:group.id}},select:{vocabularyEntryId:true}}),
+    prisma.friendConnection.findMany({ where: { OR: [{ userAId: session.user.id, userBId: { in: groupMemberIds } }, { userBId: session.user.id, userAId: { in: groupMemberIds } }] }, select: { userAId: true, userBId: true } }),
+    prisma.friendRequest.findMany({ where: { status: "PENDING", OR: [{ senderId: session.user.id, recipientId: { in: groupMemberIds } }, { recipientId: session.user.id, senderId: { in: groupMemberIds } }] }, select: { senderId: true, recipientId: true } }),
   ]);
 
   const personalKeys = new Set(profileVocabulary.map((word) => `${word.languageId}:${word.displayForm.toLowerCase().trim()}`));
   const practicePreferenceMap = new Map(practicePreferences.map((preference) => [preference.vocabularyEntryId, preference.enabled]));
   const initialSelectedIds = group.vocabulary.filter((word) => practicePreferenceMap.get(word.id) !== false).map((word) => word.id);
+  const connectedMemberIds = new Set(friendConnections.map(item => item.userAId === session.user.id ? item.userBId : item.userAId));
+  const membersWithFriendStatus = group.members.map(member => ({
+    ...member,
+    friendStatus: connectedMemberIds.has(member.userId)
+      ? "FRIENDS" as const
+      : friendRequests.some(request => request.senderId === session.user.id && request.recipientId === member.userId)
+        ? "PENDING" as const
+        : friendRequests.some(request => request.recipientId === session.user.id && request.senderId === member.userId)
+          ? "INCOMING" as const
+          : "NONE" as const,
+  }));
   const groupKeysByLanguage = new Map<string, Set<string>>();
   const personalKeysByLanguage = new Map<string, Set<string>>();
 
@@ -231,7 +247,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       <GroupTabs
         groupId={group.id}
         words={group.vocabulary}
-        members={group.members}
+        members={membersWithFriendStatus}
         groupLanguages={group.languages.map((item) => item.language)}
         availableLanguages={profileLanguages}
         syncCounts={syncCounts}

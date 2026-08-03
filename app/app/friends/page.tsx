@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { AddFriendButton } from "@/components/add-friend-button";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { completedCommitmentDays, goalStreak } from "@/lib/friends";
 import { userTimezone } from "@/lib/learning-loop";
 import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/timer";
-import { sendFriendRequest, unblockFriend } from "./actions";
+import { unblockFriend } from "./actions";
 import { CommitmentCard, FriendCard, type CommitmentView } from "./friend-cards";
 import { FriendsSettings } from "./friends-settings";
 
@@ -21,7 +22,7 @@ export default async function FriendsPage({ searchParams }: { searchParams: Prom
   const today = dateKey(new Date(), timezone);
 
   const [user, connections, commitmentRows, searchResults, blocks, groups] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true, friendCode: true, friendDiscoverable: true, friendActivityVisible: true, friendNudgesEnabled: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true, friendCode: true, friendDiscoverable: true, friendGroupDiscoverable: true, friendActivityVisible: true, friendNudgesEnabled: true } }),
     prisma.friendConnection.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
       include: {
@@ -54,6 +55,18 @@ export default async function FriendsPage({ searchParams }: { searchParams: Prom
   ]);
 
   const friends = connections.map(item => item.userAId === userId ? item.userB : item.userA);
+  const connectedIds = new Set(friends.map(friend => friend.id));
+  const searchIds = searchResults.map(item => item.id);
+  const pendingSearchRequests = searchIds.length ? await prisma.friendRequest.findMany({
+    where: {
+      status: "PENDING",
+      OR: [
+        { senderId: userId, recipientId: { in: searchIds } },
+        { recipientId: userId, senderId: { in: searchIds } },
+      ],
+    },
+    select: { senderId: true, recipientId: true },
+  }) : [];
   const commitments: CommitmentView[] = commitmentRows.map(item => {
     const own = item.userAId === userId ? item.userA : item.userB;
     const friend = item.userAId === userId ? item.userB : item.userA;
@@ -82,6 +95,7 @@ export default async function FriendsPage({ searchParams }: { searchParams: Prom
             username={user.username ?? ""}
             friendCode={user.friendCode}
             friendDiscoverable={user.friendDiscoverable}
+            friendGroupDiscoverable={user.friendGroupDiscoverable}
             friendActivityVisible={user.friendActivityVisible}
             friendNudgesEnabled={user.friendNudgesEnabled}
           />
@@ -101,7 +115,7 @@ export default async function FriendsPage({ searchParams }: { searchParams: Prom
         {searchResults.map(item => <article key={item.id} className="flex items-center gap-3 rounded-lg border bg-background p-3">
           <UserAvatar name={item.name} image={item.image} size="sm" />
           <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{displayName(item)}</p>{item.username && <p className="truncate text-xs text-muted-foreground">@{item.username}</p>}</div>
-          <form action={sendFriendRequest}><input type="hidden" name="recipientId" value={item.id} /><Button variant="outline" size="sm">Add friend</Button></form>
+          <AddFriendButton recipientId={item.id} initialStatus={friendStatus(item.id, userId, connectedIds, pendingSearchRequests)} />
         </article>)}
         {!searchResults.length && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No people matched “{q.trim()}”.</p>}
       </div>}
@@ -135,3 +149,9 @@ export default async function FriendsPage({ searchParams }: { searchParams: Prom
 type PersonIdentity = { name: string | null; username: string | null };
 function displayName(person: PersonIdentity) { return person.name?.trim() || (person.username ? `@${person.username}` : "Talkie user"); }
 function personLabel(person: PersonIdentity) { const name = person.name?.trim(); return name && person.username ? `${name} (@${person.username})` : displayName(person); }
+function friendStatus(personId: string, userId: string, connectedIds: Set<string>, requests: { senderId: string; recipientId: string }[]) {
+  if (connectedIds.has(personId)) return "FRIENDS" as const;
+  const request = requests.find(item => item.senderId === personId || item.recipientId === personId);
+  if (!request) return "NONE" as const;
+  return request.senderId === userId ? "PENDING" as const : "INCOMING" as const;
+}

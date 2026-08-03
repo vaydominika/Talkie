@@ -33,7 +33,7 @@ export async function updateFriendProfile(_previousState: FriendProfileState, fo
   if (owner) return { status: "error", message: "That username is already taken.", username: submittedUsername };
 
   try {
-    await prisma.user.update({ where: { id }, data: { username, friendCode: String(formData.get("regenerate")) === "true" ? code() : undefined, friendDiscoverable: formData.get("friendDiscoverable") === "on", friendActivityVisible: formData.get("friendActivityVisible") === "on", friendNudgesEnabled: formData.get("friendNudgesEnabled") === "on" } });
+    await prisma.user.update({ where: { id }, data: { username, friendCode: String(formData.get("regenerate")) === "true" ? code() : undefined, friendDiscoverable: formData.get("friendDiscoverable") === "on", friendGroupDiscoverable: formData.get("friendGroupDiscoverable") === "on", friendActivityVisible: formData.get("friendActivityVisible") === "on", friendNudgesEnabled: formData.get("friendNudgesEnabled") === "on" } });
   } catch (error) {
     if (isUniqueConstraintError(error, "username") || isUniqueConstraintError(error)) {
       return { status: "error", message: "That username is already taken.", username: submittedUsername };
@@ -46,14 +46,67 @@ export async function updateFriendProfile(_previousState: FriendProfileState, fo
 
 export async function regenerateFriendCode() { const id = await userId(); await prisma.user.update({ where: { id }, data: { friendCode: code() } }); refresh(); }
 
-export async function sendFriendRequest(formData: FormData) {
-  const senderId = await userId(); const recipientId = String(formData.get("recipientId") ?? "");
+export type FriendRequestState = "NONE" | "PENDING" | "FRIENDS" | "INCOMING";
+export type FriendRequestResult = { status: Exclude<FriendRequestState, "NONE" | "INCOMING">; message: string };
+
+export async function sendFriendRequest(formData: FormData): Promise<FriendRequestResult> {
+  const senderId = await userId();
+  const recipientId = String(formData.get("recipientId") ?? "");
   if (!recipientId || recipientId === senderId) throw new Error("Choose another user.");
-  const blocked = await prisma.userBlock.findFirst({ where: { OR: [{ blockerId: senderId, blockedId: recipientId }, { blockerId: recipientId, blockedId: senderId }] } });
-  if (blocked) throw new Error("Friend request unavailable.");
-  const [a, b] = canonicalFriendPair(senderId, recipientId);const pairKey=`${a}:${b}`;
-  if (await prisma.friendConnection.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } })) return;
-  await prisma.$transaction(async tx=>{const existing=await tx.friendRequest.findUnique({where:{pairKey}});if(existing?.status==="PENDING"){if(existing.senderId===senderId)return;await tx.friendRequest.update({where:{id:existing.id},data:{status:"ACCEPTED",resolvedAt:new Date()}});await tx.friendConnection.upsert({where:{userAId_userBId:{userAId:a,userBId:b}},update:{},create:{userAId:a,userBId:b}});await tx.notification.createMany({data:[{userId:senderId,actorId:recipientId,type:"FRIEND_ACCEPTED"},{userId:recipientId,actorId:senderId,type:"FRIEND_ACCEPTED"}]});return;}await tx.friendRequest.upsert({where:{pairKey},update:{senderId,recipientId,status:"PENDING",resolvedAt:null,createdAt:new Date()},create:{senderId,recipientId,pairKey}});await tx.notification.create({data:{userId:recipientId,actorId:senderId,type:"FRIEND_REQUEST"}});},{isolationLevel:"Serializable"});refresh();
+
+  const source = String(formData.get("source") ?? "search");
+  const groupId = String(formData.get("groupId") ?? "");
+  const [recipient, blocked] = await Promise.all([
+    prisma.user.findUnique({ where: { id: recipientId }, select: { friendGroupDiscoverable: true } }),
+    prisma.userBlock.findFirst({ where: { OR: [{ blockerId: senderId, blockedId: recipientId }, { blockerId: recipientId, blockedId: senderId }] } }),
+  ]);
+  if (!recipient || blocked) throw new Error("Friend request unavailable.");
+
+  if (source === "group") {
+    const sharedMemberships = groupId ? await prisma.groupMember.count({ where: { groupId, userId: { in: [senderId, recipientId] } } }) : 0;
+    const incomingRequest = !recipient.friendGroupDiscoverable ? await prisma.friendRequest.findFirst({ where: { senderId: recipientId, recipientId: senderId, status: "PENDING" }, select: { id: true } }) : null;
+    if (sharedMemberships !== 2 || (!recipient.friendGroupDiscoverable && !incomingRequest)) throw new Error("This member is not available to add from groups.");
+  }
+
+  const [a, b] = canonicalFriendPair(senderId, recipientId);
+  const pairKey = `${a}:${b}`;
+  if (await prisma.friendConnection.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } })) {
+    return { status: "FRIENDS", message: "You are already friends." };
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await prisma.$transaction(async tx => {
+        const existing = await tx.friendRequest.findUnique({ where: { pairKey } });
+        if (existing?.status === "PENDING") {
+          if (existing.senderId === senderId) return { status: "PENDING", message: "Friend request already sent." } as const;
+          await tx.friendRequest.update({ where: { id: existing.id }, data: { status: "ACCEPTED", resolvedAt: new Date() } });
+          await tx.friendConnection.upsert({ where: { userAId_userBId: { userAId: a, userBId: b } }, update: {}, create: { userAId: a, userBId: b } });
+          await tx.notification.createMany({ data: [{ userId: senderId, actorId: recipientId, type: "FRIEND_ACCEPTED" }, { userId: recipientId, actorId: senderId, type: "FRIEND_ACCEPTED" }] });
+          return { status: "FRIENDS", message: "You are now friends." } as const;
+        }
+        await tx.friendRequest.upsert({ where: { pairKey }, update: { senderId, recipientId, status: "PENDING", resolvedAt: null, createdAt: new Date() }, create: { senderId, recipientId, pairKey } });
+        await tx.notification.create({ data: { userId: recipientId, actorId: senderId, type: "FRIEND_REQUEST" } });
+        return { status: "PENDING", message: "Friend request sent." } as const;
+      }, { isolationLevel: "Serializable" });
+      refresh();
+      return result;
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code === "P2034" && attempt === 0) continue;
+      if (code === "P2002" || code === "P2034") {
+        const [connection, request] = await Promise.all([
+          prisma.friendConnection.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } }),
+          prisma.friendRequest.findUnique({ where: { pairKey } }),
+        ]);
+        if (connection) return { status: "FRIENDS", message: "You are now friends." };
+        if (request?.status === "PENDING") return { status: "PENDING", message: "Friend request sent." };
+      }
+      throw error;
+    }
+  }
+
+  throw new Error("Friend request could not be sent. Try again.");
 }
 
 export async function respondFriendRequest(formData: FormData) {

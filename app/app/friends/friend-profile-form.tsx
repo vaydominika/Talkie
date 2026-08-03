@@ -9,6 +9,7 @@ import { updateFriendProfile, type FriendProfileState } from "./actions";
 type FriendProfileFormProps = {
   username: string;
   friendDiscoverable: boolean;
+  friendGroupDiscoverable: boolean;
   friendActivityVisible: boolean;
   friendNudgesEnabled: boolean;
 };
@@ -50,6 +51,7 @@ export function FriendProfileForm(props: FriendProfileFormProps) {
       <p id="friend-username-help" className="mt-1.5 text-xs text-muted-foreground">Letters, numbers, and underscores only.</p>
       <div className="space-y-2 text-sm">
         <Toggle name="friendDiscoverable" checked={props.friendDiscoverable}>Allow username search</Toggle>
+        <Toggle name="friendGroupDiscoverable" checked={props.friendGroupDiscoverable}>Allow group members to add me</Toggle>
         <Toggle name="friendActivityVisible" checked={props.friendActivityVisible}>Show goal status to friends</Toggle>
         <Toggle name="friendNudgesEnabled" checked={props.friendNudgesEnabled}>Allow friend nudges</Toggle>
       </div>

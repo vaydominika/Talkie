@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AddFriendButton } from "@/components/add-friend-button";
 import { UserAvatar } from "@/components/user-avatar";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
@@ -36,7 +37,10 @@ type Member = {
     image: string | null;
     name: string | null;
     email: string;
+    username: string | null;
+    friendGroupDiscoverable: boolean;
   };
+  friendStatus: "NONE" | "PENDING" | "FRIENDS" | "INCOMING";
 };
 
 type Language = {
@@ -454,6 +458,7 @@ export function GroupTabs({
                   <TableHead className="p-3">Name</TableHead>
                   <TableHead className="p-3">Role</TableHead>
                   <TableHead className="p-3 text-right">Joined</TableHead>
+                  <TableHead className="p-3 text-right">Friend</TableHead>
                   {isOwner && <TableHead className="p-3 text-right">Manage</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -484,6 +489,11 @@ export function GroupTabs({
                       </TableCell>
                       <TableCell className="p-3 text-right text-xs text-muted-foreground">
                         {new Date(member.joinedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="p-3 text-right">
+                        {member.userId === currentUserId ? <span className="text-xs text-muted-foreground">You</span> : member.user.friendGroupDiscoverable || member.friendStatus !== "NONE" ? (
+                          <AddFriendButton recipientId={member.userId} groupId={groupId} initialStatus={member.friendStatus} iconOnly />
+                        ) : <span className="text-xs text-muted-foreground">Private</span>}
                       </TableCell>
                       {isOwner && (
                         <TableCell className="p-3">

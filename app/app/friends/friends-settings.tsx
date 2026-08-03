@@ -12,6 +12,7 @@ type FriendsSettingsProps = {
   username: string;
   friendCode: string | null;
   friendDiscoverable: boolean;
+  friendGroupDiscoverable: boolean;
   friendActivityVisible: boolean;
   friendNudgesEnabled: boolean;
 };
@@ -32,6 +33,7 @@ export function FriendsSettings(props: FriendsSettingsProps) {
       <FriendProfileForm
         username={props.username}
         friendDiscoverable={props.friendDiscoverable}
+        friendGroupDiscoverable={props.friendGroupDiscoverable}
         friendActivityVisible={props.friendActivityVisible}
         friendNudgesEnabled={props.friendNudgesEnabled}
       />

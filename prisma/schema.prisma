@@ -143,6 +143,7 @@ model User {
   username                 String?                        @unique
   friendCode               String?                        @unique
   friendDiscoverable       Boolean                        @default(true)
+  friendGroupDiscoverable  Boolean                        @default(true)
   friendActivityVisible    Boolean                        @default(true)
   friendNudgesEnabled      Boolean                        @default(true)
   accounts                 Account[]
